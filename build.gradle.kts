@@ -27,4 +27,5 @@ tasks.test {
     testLogging {
         events("passed", "skipped", "failed")
     }
+    jvmArgs("--add-opens", "java.base/java.lang=ALL-UNNAMED")
 }
