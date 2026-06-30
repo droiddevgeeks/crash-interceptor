@@ -30,32 +30,47 @@ public final class CrashIngestor {
             @Override public void run() {
                 try {
                     store.sweepTemps();
+                } catch (Throwable t) {
+                    CFLoggerService.getInstance().e(TAG, "temp sweep failed: " + t.getMessage());
+                }
+                try {
                     final List<File> files = store.listCompleted();
                     for (File file : files) {
                         ingestOne(file);
                     }
                 } catch (Throwable t) {
-                    CFLoggerService.getInstance().e(TAG, "ingest sweep failed: " + t.getMessage());
+                    CFLoggerService.getInstance().e(TAG, "ingest failed: " + t.getMessage());
                 }
             }
         });
     }
 
     private void ingestOne(final File file) {
+        final String token;
+        final String exceptionValues;
+        final String level;
+        final String culprit;
+        final long timestamp;
         try {
             final String content = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
             final JSONObject json = new JSONObject(content);
-            sink.submit(
-                    json.optString("token", null),
-                    json.optString("exception_values", "[]"),
-                    json.optString("level", "fatal"),
-                    json.optString("culprit", "unknown"),
-                    json.optLong("timestamp", 0L));
-            store.delete(file);
+            token = json.isNull("token") ? null : json.optString("token", null);
+            exceptionValues = json.optString("exception_values", "[]");
+            level = json.optString("level", "fatal");
+            culprit = json.optString("culprit", "unknown");
+            timestamp = json.optLong("timestamp", 0L);
         } catch (Throwable t) {
-            // Poison file: drop it so it cannot wedge the queue.
+            // Unparseable poison file: drop it so it cannot wedge the queue.
             CFLoggerService.getInstance().e(TAG, "dropping unparseable crash file: " + t.getMessage());
             store.delete(file);
+            return;
+        }
+        try {
+            sink.submit(token, exceptionValues, level, culprit, timestamp);
+            store.delete(file); // delete only after a successful hand-off
+        } catch (Throwable t) {
+            // Downstream submission failed; keep the file for retry on a future flush.
+            CFLoggerService.getInstance().e(TAG, "sink submit failed; keeping crash file for retry: " + t.getMessage());
         }
     }
 }

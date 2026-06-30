@@ -75,6 +75,23 @@ public class CrashIngestorTest {
         assertFalse(orphan.exists());
     }
 
+    @Test public void sinkFailureKeepsFileForRetry() throws IOException {
+        CrashSink throwingSink = new CrashSink() {
+            @Override public void submit(String token, String exceptionValues, String level,
+                                         String culprit, long timestamp) {
+                throw new RuntimeException("downstream down");
+            }
+        };
+        CrashIngestor ing = new CrashIngestor(store, throwingSink, directExecutor());
+        store.writeAtomic("keep",
+                CrashProcessor.buildPayloadJson(ourCrash(), 1L, "tok-K", new Redactor(), 1L));
+
+        ing.flushAsync();
+
+        // Submission failed → file must remain for a future retry, not be deleted.
+        assertEquals(1, store.listCompleted().size());
+    }
+
     private static Throwable ourCrash() {
         Throwable t = new RuntimeException("x");
         t.setStackTrace(new StackTraceElement[]{
