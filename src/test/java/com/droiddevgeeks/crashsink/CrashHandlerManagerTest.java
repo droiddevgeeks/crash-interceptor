@@ -1,4 +1,4 @@
-package com.cashfree.pg.cf_analytics.crash;
+package com.droiddevgeeks.crashsink;
 
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertSame;
@@ -15,7 +15,7 @@ public class CrashHandlerManagerTest {
 
     @Before public void setUp() {
         original = Thread.getDefaultUncaughtExceptionHandler();
-        manager = new CrashHandlerManager(new CrashAttributor(), mock(CrashProcessor.class));
+        manager = new CrashHandlerManager(new CrashAttributor("com.example."), mock(CrashProcessor.class));
     }
 
     @After public void tearDown() {

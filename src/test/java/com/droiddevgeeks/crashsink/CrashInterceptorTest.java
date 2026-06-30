@@ -1,4 +1,4 @@
-package com.cashfree.pg.cf_analytics.crash;
+package com.droiddevgeeks.crashsink;
 
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -13,7 +13,7 @@ public class CrashInterceptorTest {
     private static Throwable anyCrash() {
         Throwable t = new RuntimeException("boom");
         t.setStackTrace(new StackTraceElement[]{
-                new StackTraceElement("com.cashfree.pg.Foo", "bar", "Foo.java", 1)});
+                new StackTraceElement("com.example.Foo", "bar", "Foo.java", 1)});
         return t;
     }
 

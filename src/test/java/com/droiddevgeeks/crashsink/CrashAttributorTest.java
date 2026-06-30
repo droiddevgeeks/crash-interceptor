@@ -1,4 +1,4 @@
-package com.cashfree.pg.cf_analytics.crash;
+package com.droiddevgeeks.crashsink;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -7,7 +7,7 @@ import org.junit.Test;
 
 public class CrashAttributorTest {
 
-    private final CrashAttributor attributor = new CrashAttributor();
+    private final CrashAttributor attributor = new CrashAttributor("com.example.");
 
     private static StackTraceElement frame(String cls, String method) {
         return new StackTraceElement(cls, method, cls + ".java", 1);
@@ -21,7 +21,7 @@ public class CrashAttributorTest {
     @Test
     public void ourFrameOnTopIsOurs() {
         Throwable t = withTrace(new NullPointerException(),
-                frame("com.cashfree.pg.PaymentController", "pay"),
+                frame("com.example.PaymentController", "pay"),
                 frame("com.merchant.app.Checkout", "onClick"));
         assertTrue(attributor.isOurs(t));
     }
@@ -31,7 +31,7 @@ public class CrashAttributorTest {
         // The footgun: our frames are present but the top app frame is theirs.
         Throwable t = withTrace(new NullPointerException(),
                 frame("com.merchant.app.Checkout", "onPaymentResult"),
-                frame("com.cashfree.pg.PaymentController", "notifyResult"));
+                frame("com.example.PaymentController", "notifyResult"));
         assertFalse(attributor.isOurs(t));
     }
 
@@ -40,14 +40,14 @@ public class CrashAttributorTest {
         Throwable t = withTrace(new IllegalStateException(),
                 frame("java.util.HashMap", "get"),
                 frame("android.os.Handler", "dispatch"),
-                frame("com.cashfree.pg.network.ResponseHandler", "handle"));
+                frame("com.example.network.ResponseHandler", "handle"));
         assertTrue(attributor.isOurs(t));
     }
 
     @Test
     public void deepestCauseDeterminesOwnership() {
         Throwable root = withTrace(new IllegalArgumentException(),
-                frame("com.cashfree.pg.network.Parser", "parse"));
+                frame("com.example.network.Parser", "parse"));
         Throwable wrapper = withTrace(new RuntimeException(root),
                 frame("com.merchant.app.Checkout", "submit"));
         assertTrue(attributor.isOurs(wrapper));
@@ -56,7 +56,7 @@ public class CrashAttributorTest {
     @Test
     public void shadedDependencyFrameIsOurs() {
         Throwable t = withTrace(new IllegalStateException(),
-                frame("com.cashfree.pg.shaded.okhttp3.RealCall", "execute"));
+                frame("com.example.shaded.okhttp3.RealCall", "execute"));
         assertTrue(attributor.isOurs(t));
     }
 
@@ -77,14 +77,14 @@ public class CrashAttributorTest {
     public void prefixImpostorIsNotOurs() {
         // startsWith, not contains: this is NOT our package.
         Throwable t = withTrace(new RuntimeException(),
-                frame("com.evil.com.cashfree.pg.Fake", "go"));
+                frame("com.evil.com.example.Fake", "go"));
         assertFalse(attributor.isOurs(t));
     }
 
     @Test
     public void selfCausingThrowableDoesNotLoop() throws Exception {
         Throwable t = withTrace(new RuntimeException(),
-                frame("com.cashfree.pg.Foo", "bar"));
+                frame("com.example.Foo", "bar"));
         // Java's initCause() prevents self-causation; bypass via reflection for this pathological case
         java.lang.reflect.Field causeField = Throwable.class.getDeclaredField("cause");
         causeField.setAccessible(true);

@@ -1,4 +1,4 @@
-package com.cashfree.pg.cf_analytics.crash;
+package com.droiddevgeeks.crashsink;
 
 import java.io.File;
 import java.util.concurrent.ExecutorService;
@@ -25,15 +25,16 @@ public final class CrashReporter {
     }
 
     public static CrashReporter create(final File crashDir, final int fileCap,
-                                       final long flushTimeoutMillis, final CrashSink sink) {
+                                       final long flushTimeoutMillis, final CrashSink sink,
+                                       final String ownedPrefix) {
         final ExecutorService writerExecutor =
-                Executors.newSingleThreadExecutor(namedDaemonFactory("cf-crash-writer"));
+                Executors.newSingleThreadExecutor(namedDaemonFactory("crash-writer"));
         final ExecutorService ioExecutor =
-                Executors.newSingleThreadExecutor(namedDaemonFactory("cf-crash-ingest"));
+                Executors.newSingleThreadExecutor(namedDaemonFactory("crash-ingest"));
         final CrashFileStore store = new CrashFileStore(crashDir, fileCap);
         final CrashProcessor processor =
-                new CrashProcessor(new Redactor(), store, writerExecutor, flushTimeoutMillis);
-        final CrashHandlerManager manager = new CrashHandlerManager(new CrashAttributor(), processor);
+                new CrashProcessor(new Redactor(), store, writerExecutor, flushTimeoutMillis, ownedPrefix);
+        final CrashHandlerManager manager = new CrashHandlerManager(new CrashAttributor(ownedPrefix), processor);
         final CrashIngestor ingestor = new CrashIngestor(store, sink, ioExecutor);
         return new CrashReporter(manager, processor, ingestor, writerExecutor, ioExecutor);
     }

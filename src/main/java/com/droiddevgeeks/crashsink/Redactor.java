@@ -1,4 +1,4 @@
-package com.cashfree.pg.cf_analytics.crash;
+package com.droiddevgeeks.crashsink;
 
 import java.util.regex.Pattern;
 

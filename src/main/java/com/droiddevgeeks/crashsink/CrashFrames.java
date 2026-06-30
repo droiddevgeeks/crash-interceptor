@@ -1,9 +1,8 @@
-package com.cashfree.pg.cf_analytics.crash;
+package com.droiddevgeeks.crashsink;
 
 /** Shared stack-frame classification used by attribution and payload culprit. */
 final class CrashFrames {
 
-    static final String SDK_PREFIX = "com.cashfree.pg.";
     static final int MAX_CAUSE_DEPTH = 50;
 
     private static final String[] FRAMEWORK_PREFIXES = {
@@ -14,8 +13,8 @@ final class CrashFrames {
     private CrashFrames() {
     }
 
-    static boolean isOurs(final String className) {
-        return className != null && className.startsWith(SDK_PREFIX);
+    static boolean isOurs(final String className, final String ownedPrefix) {
+        return className != null && className.startsWith(ownedPrefix);
     }
 
     static boolean isFramework(final String className) {

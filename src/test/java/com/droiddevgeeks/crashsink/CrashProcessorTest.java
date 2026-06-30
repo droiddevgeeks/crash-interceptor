@@ -1,4 +1,4 @@
-package com.cashfree.pg.cf_analytics.crash;
+package com.droiddevgeeks.crashsink;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -27,10 +27,10 @@ public class CrashProcessorTest {
     private CrashProcessor processor;
 
     @Before public void setUp() throws IOException {
-        File dir = tmp.newFolder("cashfree_crashes");
+        File dir = tmp.newFolder("crashes");
         store = new CrashFileStore(dir, 20);
         writer = Executors.newSingleThreadExecutor();
-        processor = new CrashProcessor(new Redactor(), store, writer, 1000L);
+        processor = new CrashProcessor(new Redactor(), store, writer, 1000L, "com.example.");
         processor.setTracking(true);
         processor.setToken("token-123");
     }
@@ -38,7 +38,7 @@ public class CrashProcessorTest {
     private static Throwable ourCrash() {
         Throwable t = new IllegalStateException("card 4111 1111 1111 1111 bad");
         t.setStackTrace(new StackTraceElement[]{
-                new StackTraceElement("com.cashfree.pg.Foo", "bar", "Foo.java", 7)});
+                new StackTraceElement("com.example.Foo", "bar", "Foo.java", 7)});
         return t;
     }
 
@@ -78,21 +78,21 @@ public class CrashProcessorTest {
     @Test public void rejectedExecutorDoesNotThrowAndReturnsFalse() {
         ExecutorService dead = Executors.newSingleThreadExecutor();
         dead.shutdownNow();
-        CrashProcessor p = new CrashProcessor(new Redactor(), store, dead, 1000L);
+        CrashProcessor p = new CrashProcessor(new Redactor(), store, dead, 1000L, "com.example.");
         p.setTracking(true);
         p.setToken("tok");
         // Must NOT throw, and must report not-flushed.
         assertFalse(p.persistBlocking(Thread.currentThread(), ourCrash()));
     }
 
-    @Test public void culpritIsTheAttributedCashfreeOriginNotFrameworkTopFrame() throws Exception {
+    @Test public void culpritIsTheAttributedOwnedOriginNotFrameworkTopFrame() throws Exception {
         Throwable t = new IllegalStateException("x");
         t.setStackTrace(new StackTraceElement[]{
                 new StackTraceElement("android.os.Handler", "dispatchMessage", "Handler.java", 1),
-                new StackTraceElement("com.cashfree.pg.Worker", "run", "Worker.java", 2)});
-        String json = CrashProcessor.buildPayloadJson(t, 1L, "tok", new Redactor(), 5L);
+                new StackTraceElement("com.example.Worker", "run", "Worker.java", 2)});
+        String json = CrashProcessor.buildPayloadJson(t, 1L, "tok", new Redactor(), 5L, "com.example.");
         org.json.JSONObject obj = new org.json.JSONObject(json);
-        assertEquals("com.cashfree.pg.Worker in run", obj.getString("culprit"));
+        assertEquals("com.example.Worker in run", obj.getString("culprit"));
     }
 
     @Test public void timeoutReturnsFalseWhenWriteNeverRuns() {
@@ -104,7 +104,7 @@ public class CrashProcessorTest {
             public boolean isTerminated() { return false; }
             public boolean awaitTermination(long t, TimeUnit u) { return true; }
         };
-        CrashProcessor p = new CrashProcessor(new Redactor(), store, neverRuns, 50L);
+        CrashProcessor p = new CrashProcessor(new Redactor(), store, neverRuns, 50L, "com.example.");
         p.setTracking(true);
         p.setToken("tok");
         assertFalse(p.persistBlocking(Thread.currentThread(), ourCrash()));

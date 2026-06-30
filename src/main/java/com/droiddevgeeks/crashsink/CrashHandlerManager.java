@@ -1,6 +1,4 @@
-package com.cashfree.pg.cf_analytics.crash;
-
-import com.cashfree.pg.base.logger.CFLoggerService;
+package com.droiddevgeeks.crashsink;
 
 /** Owns installation and survival of the crash interceptor in the handler chain. */
 public final class CrashHandlerManager {
@@ -27,7 +25,7 @@ public final class CrashHandlerManager {
         if (current == installed) {
             return; // still in the slot; nothing to do
         }
-        CFLoggerService.getInstance().e(TAG,
+        CrashLogger.getInstance().e(TAG,
                 "crash handler displaced; re-asserting over " + current);
         installed = new CrashInterceptor(current, attributor, processor);
         Thread.setDefaultUncaughtExceptionHandler(installed);

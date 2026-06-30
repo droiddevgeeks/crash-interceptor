@@ -1,1 +1,1 @@
-rootProject.name = "crash-interceptor"
+rootProject.name = "crashsink"

@@ -1,6 +1,4 @@
-package com.cashfree.pg.cf_analytics.crash;
-
-import com.cashfree.pg.base.logger.CFLoggerService;
+package com.droiddevgeeks.crashsink;
 
 import org.json.JSONObject;
 
@@ -31,7 +29,7 @@ public final class CrashIngestor {
                 try {
                     store.sweepTemps();
                 } catch (Throwable t) {
-                    CFLoggerService.getInstance().e(TAG, "temp sweep failed: " + t.getMessage());
+                    CrashLogger.getInstance().e(TAG, "temp sweep failed: " + t.getMessage());
                 }
                 try {
                     final List<File> files = store.listCompleted();
@@ -39,7 +37,7 @@ public final class CrashIngestor {
                         ingestOne(file);
                     }
                 } catch (Throwable t) {
-                    CFLoggerService.getInstance().e(TAG, "ingest failed: " + t.getMessage());
+                    CrashLogger.getInstance().e(TAG, "ingest failed: " + t.getMessage());
                 }
             }
         });
@@ -61,7 +59,7 @@ public final class CrashIngestor {
             timestamp = json.optLong("timestamp", 0L);
         } catch (Throwable t) {
             // Unparseable poison file: drop it so it cannot wedge the queue.
-            CFLoggerService.getInstance().e(TAG, "dropping unparseable crash file: " + t.getMessage());
+            CrashLogger.getInstance().e(TAG, "dropping unparseable crash file: " + t.getMessage());
             store.delete(file);
             return;
         }
@@ -70,7 +68,7 @@ public final class CrashIngestor {
             store.delete(file); // delete only after a successful hand-off
         } catch (Throwable t) {
             // Downstream submission failed; keep the file for retry on a future flush.
-            CFLoggerService.getInstance().e(TAG, "sink submit failed; keeping crash file for retry: " + t.getMessage());
+            CrashLogger.getInstance().e(TAG, "sink submit failed; keeping crash file for retry: " + t.getMessage());
         }
     }
 }

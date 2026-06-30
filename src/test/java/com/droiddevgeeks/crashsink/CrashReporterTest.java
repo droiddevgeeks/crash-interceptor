@@ -1,4 +1,4 @@
-package com.cashfree.pg.cf_analytics.crash;
+package com.droiddevgeeks.crashsink;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -51,15 +51,15 @@ public class CrashReporterTest {
     private static Throwable ourCrash() {
         Throwable t = new IllegalStateException("boom");
         t.setStackTrace(new StackTraceElement[]{
-                new StackTraceElement("com.cashfree.pg.Foo", "bar", "Foo.java", 1)});
+                new StackTraceElement("com.example.Foo", "bar", "Foo.java", 1)});
         return t;
     }
 
     private CrashReporter newReporter(CrashFileStore store, CrashSink sink) {
         ExecutorService writer = directExecutor();
         ExecutorService io = directExecutor();
-        CrashProcessor processor = new CrashProcessor(new Redactor(), store, writer, 1000L);
-        CrashHandlerManager manager = new CrashHandlerManager(new CrashAttributor(), processor);
+        CrashProcessor processor = new CrashProcessor(new Redactor(), store, writer, 1000L, "com.example.");
+        CrashHandlerManager manager = new CrashHandlerManager(new CrashAttributor("com.example."), processor);
         CrashIngestor ingestor = new CrashIngestor(store, sink, io);
         return new CrashReporter(manager, processor, ingestor, writer, io);
     }
@@ -75,7 +75,7 @@ public class CrashReporterTest {
     }
 
     @Test public void capturesOurCrashAndDelegatesToHost() throws IOException {
-        File dir = tmp.newFolder("cashfree_crashes");
+        File dir = tmp.newFolder("crashes");
         CrashFileStore store = new CrashFileStore(dir, 20);
         CrashReporter reporter = newReporter(store, new RecordingSink());
 
@@ -90,7 +90,7 @@ public class CrashReporterTest {
     }
 
     @Test public void doesNotCaptureWhenStopped() throws IOException {
-        File dir = tmp.newFolder("cashfree_crashes");
+        File dir = tmp.newFolder("crashes");
         CrashFileStore store = new CrashFileStore(dir, 20);
         CrashReporter reporter = newReporter(store, new RecordingSink());
 
@@ -106,10 +106,10 @@ public class CrashReporterTest {
     }
 
     @Test public void installIngestsCrashesFromPreviousRun() throws IOException {
-        File dir = tmp.newFolder("cashfree_crashes");
+        File dir = tmp.newFolder("crashes");
         CrashFileStore store = new CrashFileStore(dir, 20);
         store.writeAtomic("old",
-                CrashProcessor.buildPayloadJson(ourCrash(), 1L, "tok-prev", new Redactor(), 9L));
+                CrashProcessor.buildPayloadJson(ourCrash(), 1L, "tok-prev", new Redactor(), 9L, "com.example."));
 
         RecordingSink sink = new RecordingSink();
         CrashReporter reporter = newReporter(store, sink);
@@ -121,12 +121,12 @@ public class CrashReporterTest {
     }
 
     @Test public void shutdownStopsBothExecutors() throws IOException {
-        File dir = tmp.newFolder("cashfree_crashes");
+        File dir = tmp.newFolder("crashes");
         CrashFileStore store = new CrashFileStore(dir, 20);
         ExecutorService writer = Executors.newSingleThreadExecutor();
         ExecutorService io = Executors.newSingleThreadExecutor();
-        CrashProcessor processor = new CrashProcessor(new Redactor(), store, writer, 1000L);
-        CrashHandlerManager manager = new CrashHandlerManager(new CrashAttributor(), processor);
+        CrashProcessor processor = new CrashProcessor(new Redactor(), store, writer, 1000L, "com.example.");
+        CrashHandlerManager manager = new CrashHandlerManager(new CrashAttributor("com.example."), processor);
         CrashIngestor ingestor = new CrashIngestor(store, new RecordingSink(), io);
         CrashReporter reporter = new CrashReporter(manager, processor, ingestor, writer, io);
 

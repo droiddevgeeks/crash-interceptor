@@ -1,4 +1,4 @@
-package com.cashfree.pg.cf_analytics.crash;
+package com.droiddevgeeks.crashsink;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -43,7 +43,7 @@ public class CrashIngestorTest {
     }
 
     @Before public void setUp() throws IOException {
-        File dir = tmp.newFolder("cashfree_crashes");
+        File dir = tmp.newFolder("crashes");
         store = new CrashFileStore(dir, 20);
         sink = new RecordingSink();
         ingestor = new CrashIngestor(store, sink, directExecutor());
@@ -51,7 +51,7 @@ public class CrashIngestorTest {
 
     @Test public void ingestsCompletedFileThenDeletesIt() throws IOException {
         String json = CrashProcessor.buildPayloadJson(
-                ourCrash(), 1L, "tok-A", new Redactor(), 123L);
+                ourCrash(), 1L, "tok-A", new Redactor(), 123L, "com.example.");
         store.writeAtomic("c1", json);
 
         ingestor.flushAsync();
@@ -69,7 +69,7 @@ public class CrashIngestorTest {
     }
 
     @Test public void sweepsLeftoverTemps() throws IOException {
-        File orphan = new File(tmp.getRoot(), "cashfree_crashes/dead.tmp");
+        File orphan = new File(tmp.getRoot(), "crashes/dead.tmp");
         orphan.createNewFile();
         ingestor.flushAsync();
         assertFalse(orphan.exists());
@@ -84,7 +84,7 @@ public class CrashIngestorTest {
         };
         CrashIngestor ing = new CrashIngestor(store, throwingSink, directExecutor());
         store.writeAtomic("keep",
-                CrashProcessor.buildPayloadJson(ourCrash(), 1L, "tok-K", new Redactor(), 1L));
+                CrashProcessor.buildPayloadJson(ourCrash(), 1L, "tok-K", new Redactor(), 1L, "com.example."));
 
         ing.flushAsync();
 
@@ -95,7 +95,7 @@ public class CrashIngestorTest {
     private static Throwable ourCrash() {
         Throwable t = new RuntimeException("x");
         t.setStackTrace(new StackTraceElement[]{
-                new StackTraceElement("com.cashfree.pg.Foo", "bar", "Foo.java", 1)});
+                new StackTraceElement("com.example.Foo", "bar", "Foo.java", 1)});
         return t;
     }
 }

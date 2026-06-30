@@ -1,6 +1,4 @@
-package com.cashfree.pg.cf_analytics.crash;
-
-import com.cashfree.pg.base.logger.CFLoggerService;
+package com.droiddevgeeks.crashsink;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -22,6 +20,7 @@ public final class CrashProcessor {
     private final CrashFileStore store;
     private final ExecutorService writerExecutor;
     private final long flushTimeoutMillis;
+    private final String ownedPrefix;
     private final Set<Throwable> handled =
             Collections.synchronizedSet(Collections.newSetFromMap(new IdentityHashMap<Throwable, Boolean>()));
 
@@ -30,11 +29,13 @@ public final class CrashProcessor {
     private final AtomicLong sequence = new AtomicLong(0L);
 
     public CrashProcessor(final Redactor redactor, final CrashFileStore store,
-                          final ExecutorService writerExecutor, final long flushTimeoutMillis) {
+                          final ExecutorService writerExecutor, final long flushTimeoutMillis,
+                          final String ownedPrefix) {
         this.redactor = redactor;
         this.store = store;
         this.writerExecutor = writerExecutor;
         this.flushTimeoutMillis = flushTimeoutMillis;
+        this.ownedPrefix = ownedPrefix;
     }
 
     public void setTracking(final boolean tracking) { this.tracking = tracking; }
@@ -60,10 +61,10 @@ public final class CrashProcessor {
                 @Override public void run() {
                     try {
                         final String json =
-                                buildPayloadJson(throwable, threadId, currentToken, redactor, crashTs);
+                                buildPayloadJson(throwable, threadId, currentToken, redactor, crashTs, ownedPrefix);
                         store.writeAtomic(fileBase, json);
                     } catch (Throwable t) {
-                        CFLoggerService.getInstance().e(TAG, "crash write failed: " + t.getMessage());
+                        CrashLogger.getInstance().e(TAG, "crash write failed: " + t.getMessage());
                     } finally {
                         latch.countDown();
                     }
@@ -71,14 +72,14 @@ public final class CrashProcessor {
             });
         } catch (Throwable t) {
             // Executor rejected the task (e.g. shut down). Never propagate from the crash path.
-            CFLoggerService.getInstance().e(TAG, "crash write could not be scheduled: " + t.getMessage());
+            CrashLogger.getInstance().e(TAG, "crash write could not be scheduled: " + t.getMessage());
             return false;
         }
 
         try {
             final boolean flushed = latch.await(flushTimeoutMillis, TimeUnit.MILLISECONDS);
             if (!flushed) {
-                CFLoggerService.getInstance().e(TAG, "crash flush timed out");
+                CrashLogger.getInstance().e(TAG, "crash flush timed out");
             }
             return flushed;
         } catch (InterruptedException e) {
@@ -90,7 +91,7 @@ public final class CrashProcessor {
     /** Pure payload builder: a CFLoggedException-shaped JSON object. */
     static String buildPayloadJson(final Throwable throwable, final long threadId,
                                    final String token, final Redactor redactor,
-                                   final long crashTimestamp) {
+                                   final long crashTimestamp, final String ownedPrefix) {
         final JSONArray values = new JSONArray();
         Throwable present = throwable;
         int guard = 0;
@@ -104,7 +105,7 @@ public final class CrashProcessor {
                     frame.put("module", el.getClassName());
                     frame.put("filename", el.getFileName());
                     frame.put("lineno", el.getLineNumber());
-                    frame.put("in_app", CrashFrames.isOurs(el.getClassName()));
+                    frame.put("in_app", CrashFrames.isOurs(el.getClassName(), ownedPrefix));
                 } catch (Throwable ignored) { }
                 frames.put(frame);
             }

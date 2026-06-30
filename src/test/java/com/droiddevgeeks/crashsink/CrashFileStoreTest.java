@@ -1,4 +1,4 @@
-package com.cashfree.pg.cf_analytics.crash;
+package com.droiddevgeeks.crashsink;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -22,7 +22,7 @@ public class CrashFileStoreTest {
     private File dir;
 
     @Before public void setUp() throws IOException {
-        dir = tmp.newFolder("cashfree_crashes");
+        dir = tmp.newFolder("crashes");
     }
 
     @Test public void writeThenListReturnsCrashFile() throws IOException {

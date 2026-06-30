@@ -1,4 +1,4 @@
-package com.cashfree.pg.cf_analytics.crash;
+package com.droiddevgeeks.crashsink;
 
 /** Decorator in the uncaught-exception chain. Captures our crashes, always delegates. */
 public final class CrashInterceptor implements Thread.UncaughtExceptionHandler {
