@@ -27,13 +27,31 @@ public final class CrashReporter {
     public static CrashReporter create(final File crashDir, final int fileCap,
                                        final long flushTimeoutMillis, final CrashSink sink,
                                        final String ownedPrefix) {
+        return create(crashDir, fileCap, flushTimeoutMillis, sink, ownedPrefix, null);
+    }
+
+    /**
+     * Context-based overload: derives the crash dir from {@code context.getFilesDir()} and
+     * attaches device/app metadata (collected once, off the crash path) to every captured crash.
+     */
+    public static CrashReporter create(final android.content.Context context, final int fileCap,
+                                       final long flushTimeoutMillis, final CrashSink sink,
+                                       final String ownedPrefix) {
+        final java.io.File crashDir = new java.io.File(context.getFilesDir(), "crashes");
+        final DeviceMetadata metadata = AndroidDeviceMetadata.collect(context);
+        return create(crashDir, fileCap, flushTimeoutMillis, sink, ownedPrefix, metadata);
+    }
+
+    private static CrashReporter create(final File crashDir, final int fileCap,
+                                        final long flushTimeoutMillis, final CrashSink sink,
+                                        final String ownedPrefix, final DeviceMetadata metadata) {
         final ExecutorService writerExecutor =
                 Executors.newSingleThreadExecutor(namedDaemonFactory("crash-writer"));
         final ExecutorService ioExecutor =
                 Executors.newSingleThreadExecutor(namedDaemonFactory("crash-ingest"));
         final CrashFileStore store = new CrashFileStore(crashDir, fileCap);
         final CrashProcessor processor =
-                new CrashProcessor(new Redactor(), store, writerExecutor, flushTimeoutMillis, ownedPrefix);
+                new CrashProcessor(new Redactor(), store, writerExecutor, flushTimeoutMillis, ownedPrefix, metadata);
         final CrashHandlerManager manager = new CrashHandlerManager(new CrashAttributor(ownedPrefix), processor);
         final CrashIngestor ingestor = new CrashIngestor(store, sink, ioExecutor);
         return new CrashReporter(manager, processor, ingestor, writerExecutor, ioExecutor);

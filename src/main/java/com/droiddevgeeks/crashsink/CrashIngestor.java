@@ -50,6 +50,7 @@ public final class CrashIngestor {
         final String level;
         final String culprit;
         final long timestamp;
+        final String contexts;
         try {
             final String content = readUtf8(file);
             final JSONObject json = new JSONObject(content);
@@ -58,6 +59,7 @@ public final class CrashIngestor {
             level = json.optString("level", "fatal");
             culprit = json.optString("culprit", "unknown");
             timestamp = json.optLong("timestamp", 0L);
+            contexts = json.optString("contexts", "{}");
         } catch (Throwable t) {
             // Unparseable poison file: drop it so it cannot wedge the queue.
             CrashLogger.getInstance().e(TAG, "dropping unparseable crash file: " + t.getMessage());
@@ -65,7 +67,7 @@ public final class CrashIngestor {
             return;
         }
         try {
-            sink.submit(token, exceptionValues, level, culprit, timestamp);
+            sink.submit(token, exceptionValues, level, culprit, timestamp, contexts);
             store.delete(file); // delete only after a successful hand-off
         } catch (Throwable t) {
             // Downstream submission failed; keep the file for retry on a future flush.

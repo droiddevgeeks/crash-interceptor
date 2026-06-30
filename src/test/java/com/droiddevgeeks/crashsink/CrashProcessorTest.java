@@ -30,7 +30,7 @@ public class CrashProcessorTest {
         File dir = tmp.newFolder("crashes");
         store = new CrashFileStore(dir, 20);
         writer = Executors.newSingleThreadExecutor();
-        processor = new CrashProcessor(new Redactor(), store, writer, 1000L, "com.example.");
+        processor = new CrashProcessor(new Redactor(), store, writer, 1000L, "com.example.", null);
         processor.setTracking(true);
         processor.setToken("token-123");
     }
@@ -78,7 +78,7 @@ public class CrashProcessorTest {
     @Test public void rejectedExecutorDoesNotThrowAndReturnsFalse() {
         ExecutorService dead = Executors.newSingleThreadExecutor();
         dead.shutdownNow();
-        CrashProcessor p = new CrashProcessor(new Redactor(), store, dead, 1000L, "com.example.");
+        CrashProcessor p = new CrashProcessor(new Redactor(), store, dead, 1000L, "com.example.", null);
         p.setTracking(true);
         p.setToken("tok");
         // Must NOT throw, and must report not-flushed.
@@ -90,9 +90,31 @@ public class CrashProcessorTest {
         t.setStackTrace(new StackTraceElement[]{
                 new StackTraceElement("android.os.Handler", "dispatchMessage", "Handler.java", 1),
                 new StackTraceElement("com.example.Worker", "run", "Worker.java", 2)});
-        String json = CrashProcessor.buildPayloadJson(t, 1L, "tok", new Redactor(), 5L, "com.example.");
+        String json = CrashProcessor.buildPayloadJson(t, 1L, "tok", new Redactor(), 5L, "com.example.", null);
         org.json.JSONObject obj = new org.json.JSONObject(json);
         assertEquals("com.example.Worker in run", obj.getString("culprit"));
+    }
+
+    @Test public void contextsContainsDeviceMetadataAndMemory() throws Exception {
+        DeviceMetadata md = new DeviceMetadata(
+                "14", 34, "Google", "Pixel 8", "1.2.3", 42);
+        String json = CrashProcessor.buildPayloadJson(
+                ourCrash(), 1L, "tok", new Redactor(), 5L, "com.example.", md);
+        org.json.JSONObject payload = new org.json.JSONObject(json);
+        org.json.JSONObject contexts = new org.json.JSONObject(payload.getString("contexts"));
+
+        org.json.JSONObject device = contexts.getJSONObject("device");
+        assertEquals("Pixel 8", device.getString("model"));
+        assertEquals("Google", device.getString("manufacturer"));
+        assertEquals("14", device.getString("os_version"));
+        assertEquals(34, device.getInt("sdk_int"));
+        assertEquals("1.2.3", device.getString("app_version_name"));
+        assertEquals(42, device.getInt("app_version_code"));
+
+        org.json.JSONObject memory = contexts.getJSONObject("memory");
+        assertTrue(memory.has("heap_max"));
+        assertTrue(memory.has("heap_free"));
+        assertTrue(memory.has("heap_total"));
     }
 
     @Test public void timeoutReturnsFalseWhenWriteNeverRuns() {
@@ -104,7 +126,7 @@ public class CrashProcessorTest {
             public boolean isTerminated() { return false; }
             public boolean awaitTermination(long t, TimeUnit u) { return true; }
         };
-        CrashProcessor p = new CrashProcessor(new Redactor(), store, neverRuns, 50L, "com.example.");
+        CrashProcessor p = new CrashProcessor(new Redactor(), store, neverRuns, 50L, "com.example.", null);
         p.setTracking(true);
         p.setToken("tok");
         assertFalse(p.persistBlocking(Thread.currentThread(), ourCrash()));

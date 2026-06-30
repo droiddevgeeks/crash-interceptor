@@ -2,6 +2,12 @@ package com.droiddevgeeks.crashsink;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import android.content.Context;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 
 import org.junit.After;
 import org.junit.Before;
@@ -43,7 +49,7 @@ public class CrashReporterTest {
 
     static final class RecordingSink implements CrashSink {
         final List<String> tokens = new ArrayList<>();
-        public void submit(String token, String ev, String level, String culprit, long ts) {
+        public void submit(String token, String ev, String level, String culprit, long ts, String contexts) {
             tokens.add(token);
         }
     }
@@ -58,7 +64,7 @@ public class CrashReporterTest {
     private CrashReporter newReporter(CrashFileStore store, CrashSink sink) {
         ExecutorService writer = directExecutor();
         ExecutorService io = directExecutor();
-        CrashProcessor processor = new CrashProcessor(new Redactor(), store, writer, 1000L, "com.example.");
+        CrashProcessor processor = new CrashProcessor(new Redactor(), store, writer, 1000L, "com.example.", null);
         CrashHandlerManager manager = new CrashHandlerManager(new CrashAttributor("com.example."), processor);
         CrashIngestor ingestor = new CrashIngestor(store, sink, io);
         return new CrashReporter(manager, processor, ingestor, writer, io);
@@ -109,7 +115,7 @@ public class CrashReporterTest {
         File dir = tmp.newFolder("crashes");
         CrashFileStore store = new CrashFileStore(dir, 20);
         store.writeAtomic("old",
-                CrashProcessor.buildPayloadJson(ourCrash(), 1L, "tok-prev", new Redactor(), 9L, "com.example."));
+                CrashProcessor.buildPayloadJson(ourCrash(), 1L, "tok-prev", new Redactor(), 9L, "com.example.", null));
 
         RecordingSink sink = new RecordingSink();
         CrashReporter reporter = newReporter(store, sink);
@@ -120,12 +126,42 @@ public class CrashReporterTest {
         assertEquals(0, store.listCompleted().size());
     }
 
+    @Test public void contextOverloadCapturesCrashUnderFilesDirAndDelegates() throws Exception {
+        File filesDir = tmp.newFolder("files");
+
+        Context context = mock(Context.class);
+        PackageManager pm = mock(PackageManager.class);
+        PackageInfo pi = new PackageInfo();
+        pi.versionName = "1.2.3";
+        pi.versionCode = 42;
+        when(context.getFilesDir()).thenReturn(filesDir);
+        when(context.getPackageManager()).thenReturn(pm);
+        when(context.getPackageName()).thenReturn("com.example");
+        when(pm.getPackageInfo("com.example", 0)).thenReturn(pi);
+
+        CrashReporter reporter =
+                CrashReporter.create(context, 20, 1000L, new RecordingSink(), "com.example.");
+        reporter.install();
+        reporter.startCapturing("tok-ctx");
+
+        Thread.getDefaultUncaughtExceptionHandler()
+                .uncaughtException(Thread.currentThread(), ourCrash());
+
+        // persistBlocking waits up to the flush timeout for the daemon writer.
+        File crashDir = new File(filesDir, "crashes");
+        CrashFileStore store = new CrashFileStore(crashDir, 20);
+        assertEquals(1, store.listCompleted().size());  // captured under filesDir/crashes
+        assertTrue(previous.called);                     // delegated to host
+
+        reporter.shutdown();
+    }
+
     @Test public void shutdownStopsBothExecutors() throws IOException {
         File dir = tmp.newFolder("crashes");
         CrashFileStore store = new CrashFileStore(dir, 20);
         ExecutorService writer = Executors.newSingleThreadExecutor();
         ExecutorService io = Executors.newSingleThreadExecutor();
-        CrashProcessor processor = new CrashProcessor(new Redactor(), store, writer, 1000L, "com.example.");
+        CrashProcessor processor = new CrashProcessor(new Redactor(), store, writer, 1000L, "com.example.", null);
         CrashHandlerManager manager = new CrashHandlerManager(new CrashAttributor("com.example."), processor);
         CrashIngestor ingestor = new CrashIngestor(store, new RecordingSink(), io);
         CrashReporter reporter = new CrashReporter(manager, processor, ingestor, writer, io);

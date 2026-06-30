@@ -21,6 +21,7 @@ public final class CrashProcessor {
     private final ExecutorService writerExecutor;
     private final long flushTimeoutMillis;
     private final String ownedPrefix;
+    private final DeviceMetadata metadata;
     private final Set<Throwable> handled =
             Collections.synchronizedSet(Collections.newSetFromMap(new IdentityHashMap<Throwable, Boolean>()));
 
@@ -33,12 +34,13 @@ public final class CrashProcessor {
 
     public CrashProcessor(final Redactor redactor, final CrashFileStore store,
                           final ExecutorService writerExecutor, final long flushTimeoutMillis,
-                          final String ownedPrefix) {
+                          final String ownedPrefix, final DeviceMetadata metadata) {
         this.redactor = redactor;
         this.store = store;
         this.writerExecutor = writerExecutor;
         this.flushTimeoutMillis = flushTimeoutMillis;
         this.ownedPrefix = ownedPrefix;
+        this.metadata = metadata;
     }
 
     public void setTracking(final boolean tracking) { this.tracking = tracking; }
@@ -64,7 +66,7 @@ public final class CrashProcessor {
                 @Override public void run() {
                     try {
                         final String json =
-                                buildPayloadJson(throwable, threadId, currentToken, redactor, crashTs, ownedPrefix);
+                                buildPayloadJson(throwable, threadId, currentToken, redactor, crashTs, ownedPrefix, metadata);
                         store.writeAtomic(fileBase, json);
                     } catch (Throwable t) {
                         CrashLogger.getInstance().e(TAG, "crash write failed: " + t.getMessage());
@@ -94,7 +96,8 @@ public final class CrashProcessor {
     /** Pure payload builder: a JSON object describing the crash and its cause chain. */
     static String buildPayloadJson(final Throwable throwable, final long threadId,
                                    final String token, final Redactor redactor,
-                                   final long crashTimestamp, final String ownedPrefix) {
+                                   final long crashTimestamp, final String ownedPrefix,
+                                   final DeviceMetadata metadata) {
         final JSONArray values = new JSONArray();
         Throwable present = throwable;
         int guard = 0;
@@ -132,6 +135,27 @@ public final class CrashProcessor {
                 ? originFrame.getClassName() + " in " + originFrame.getMethodName()
                 : "unknown";
 
+        final org.json.JSONObject contexts = new org.json.JSONObject();
+        try {
+            if (metadata != null) {
+                final org.json.JSONObject device = new org.json.JSONObject();
+                device.put("os_version", metadata.osVersion);
+                device.put("sdk_int", metadata.sdkInt);
+                device.put("manufacturer", metadata.manufacturer);
+                device.put("model", metadata.model);
+                device.put("app_version_name", metadata.appVersionName);
+                device.put("app_version_code", metadata.appVersionCode);
+                contexts.put("device", device);
+            }
+            final Runtime rt = Runtime.getRuntime();
+            final org.json.JSONObject memory = new org.json.JSONObject();
+            memory.put("heap_free", rt.freeMemory());
+            memory.put("heap_total", rt.totalMemory());
+            memory.put("heap_max", rt.maxMemory());
+            contexts.put("memory", memory);
+        } catch (Throwable ignored) {
+        }
+
         final JSONObject payload = new JSONObject();
         try {
             payload.put("token", token);
@@ -139,6 +163,7 @@ public final class CrashProcessor {
             payload.put("culprit", culprit);
             payload.put("timestamp", crashTimestamp);
             payload.put("exception_values", values.toString());
+            payload.put("contexts", contexts.toString());
         } catch (Throwable ignored) { }
         return payload.toString();
     }

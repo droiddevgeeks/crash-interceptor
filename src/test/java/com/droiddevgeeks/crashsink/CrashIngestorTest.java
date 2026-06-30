@@ -37,7 +37,7 @@ public class CrashIngestorTest {
     static final class RecordingSink implements CrashSink {
         final List<String> tokens = new ArrayList<>();
         @Override public void submit(String token, String exceptionValues, String level,
-                                     String culprit, long timestamp) {
+                                     String culprit, long timestamp, String contexts) {
             tokens.add(token);
         }
     }
@@ -51,7 +51,7 @@ public class CrashIngestorTest {
 
     @Test public void ingestsCompletedFileThenDeletesIt() throws IOException {
         String json = CrashProcessor.buildPayloadJson(
-                ourCrash(), 1L, "tok-A", new Redactor(), 123L, "com.example.");
+                ourCrash(), 1L, "tok-A", new Redactor(), 123L, "com.example.", null);
         store.writeAtomic("c1", json);
 
         ingestor.flushAsync();
@@ -78,13 +78,13 @@ public class CrashIngestorTest {
     @Test public void sinkFailureKeepsFileForRetry() throws IOException {
         CrashSink throwingSink = new CrashSink() {
             @Override public void submit(String token, String exceptionValues, String level,
-                                         String culprit, long timestamp) {
+                                         String culprit, long timestamp, String contexts) {
                 throw new RuntimeException("downstream down");
             }
         };
         CrashIngestor ing = new CrashIngestor(store, throwingSink, directExecutor());
         store.writeAtomic("keep",
-                CrashProcessor.buildPayloadJson(ourCrash(), 1L, "tok-K", new Redactor(), 1L, "com.example."));
+                CrashProcessor.buildPayloadJson(ourCrash(), 1L, "tok-K", new Redactor(), 1L, "com.example.", null));
 
         ing.flushAsync();
 
