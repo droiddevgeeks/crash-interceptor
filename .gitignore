@@ -2,3 +2,6 @@
 build/
 bin/
 .sdd/
+.history/
+local.properties
+.cxx/

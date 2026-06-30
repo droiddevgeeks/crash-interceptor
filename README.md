@@ -41,25 +41,29 @@ attributes precisely, captures narrowly, and never breaks the chain.
 
 ## Requirements
 
-- Java 8+ bytecode (compiles with `--release 8`; runs on any modern JVM)
-- **Android `minSdk` 21+ (Android 5.0) through API 36** — uses only `java.io` and core APIs
-  available since API 21. **No core-library desugaring required.** (Deliberately avoids
-  `java.nio.file`, which is API 26+ and not desugared, and `List.sort`/`Comparator.comparingLong`,
-  which need API 24.)
-- `org.json` on the runtime classpath (provided by the Android platform on every API level;
-  add it explicitly only on a plain JVM — see below)
+This is an **Android library** (`com.android.library`):
+
+- **`minSdk` 21 (Android 5.0) → `compileSdk` 35** — uses only `java.io` and core APIs available
+  since API 21, so **no core-library desugaring required**. (Deliberately avoids `java.nio.file`,
+  which is API 26+ and not desugared, and `List.sort`/`Comparator.comparingLong`, which need API 24.)
+  The code is in fact API-19-safe, so it also drops into `minSdk 19` modules unchanged.
+- **Java 8** source/target (broad device reach).
+- Toolchain: **AGP 8.8.2 / Gradle 8.10.2** (pinned to match a typical Android SDK module).
+- `org.json` is provided by the Android platform — no dependency to add. (It's pulled in only as
+  a *test* dependency, because the platform's `org.json` is a throwing stub under host unit tests.)
 
 ## Adding it to your build
 
-This repo is a standalone Gradle project you can copy the `com.droiddevgeeks.crashsink`
-package into, or publish as a library. Its only runtime dependency is `org.json`:
+Depend on the published AAR (or include the module):
 
 ```kotlin
 dependencies {
-    // On Android, org.json ships with the platform — you can omit this.
-    implementation("org.json:json:20231013")
+    implementation("com.droiddevgeeks:crashsink:<version>")
 }
 ```
+
+Or copy the `com.droiddevgeeks.crashsink` package into an existing Android library module —
+it has a single platform dependency (`android.util.Log`, in `CrashLogger`).
 
 ---
 
@@ -189,21 +193,14 @@ disk stalls — and then crashsink delegates anyway rather than hang.
   (If you ship a pre-obfuscated AAR, pass your *published* obfuscated root package as
   `ownedPrefix` instead.)
 
-  The repo ships [`consumer-rules.pro`](consumer-rules.pro) (keeps crashsink's public API in
-  the consuming app's R8 run, plus the fill-in template above) and
-  [`proguard-rules.pro`](proguard-rules.pro) (for self-minifying the AAR). They are **inert in
-  this standalone JVM build** — wire them up when crashsink is built as an `com.android.library`:
+  The build already wires [`consumer-rules.pro`](consumer-rules.pro) via
+  `consumerProguardFiles(...)`, so it is **bundled into the AAR** (as `proguard.txt`) and applied
+  automatically to the consuming app's R8 run — it keeps crashsink's public API and carries the
+  fill-in template above. [`proguard-rules.pro`](proguard-rules.pro) is wired for self-minifying
+  the AAR (off by default, as libraries usually ship un-minified).
 
-  ```kotlin
-  android {
-      defaultConfig { consumerProguardFiles("consumer-rules.pro") }
-      // and, only if you minify the AAR itself:
-      // buildTypes { release { proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro") } }
-  }
-  ```
-
-- **Logging:** the bundled `CrashLogger` writes to `System.err` (shows up in logcat). In a
-  real Android module, swap it for `android.util.Log` — it's the one platform seam.
+- **Logging:** `CrashLogger` wraps `android.util.Log` — the one platform seam. (Host unit tests
+  use `testOptions.unitTests.isReturnDefaultValues = true`, so `Log` calls are no-ops there.)
 
 - **Threading / StrictMode:** all disk I/O runs on background executors, never the main
   thread, so StrictMode's main-thread disk policies won't fire. The only main-thread time is
@@ -234,15 +231,17 @@ disk stalls — and then crashsink delegates anyway rather than hang.
 | `CrashIngestor` + `CrashSink` | Next-launch delivery; retry-safe |
 | `Redactor` | PAN / token / VPA scrubbing |
 | `CrashFrames` | Shared stack-frame classification |
-| `CrashLogger` | Minimal logger stand-in (swap for your platform logger) |
+| `CrashLogger` | Thin wrapper over `android.util.Log` (the one platform seam) |
 
 ## Building & testing
 
 ```bash
-./gradlew test    # 46 unit tests
+./gradlew testDebugUnitTest    # 46 unit tests
+./gradlew assembleRelease      # produces build/outputs/aar/crashsink-release.aar
 ```
 
-Tests run on the host JVM (JUnit 4 + Mockito); no Android device or emulator required.
+Unit tests run on the host JVM (JUnit 4 + Mockito, `returnDefaultValues` for `android.*`); no
+device or emulator required. Requires the Android SDK (`ANDROID_HOME`) with `compileSdk 35`.
 
 ## License
 

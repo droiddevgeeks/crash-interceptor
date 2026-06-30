@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Namespace is declared in build.gradle.kts; the library needs no permissions,
+     components, or resources. -->
+<manifest />

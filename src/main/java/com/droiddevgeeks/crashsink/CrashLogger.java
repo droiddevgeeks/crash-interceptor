@@ -1,8 +1,10 @@
 package com.droiddevgeeks.crashsink;
 
+import android.util.Log;
+
 /**
- * Lightweight logger used by the crash subsystem. Mirrors the minimal API surface the
- * crash pipeline depends on. Logs to stderr in this project.
+ * Thin error logger over {@link android.util.Log}. Centralizes the one Android platform
+ * dependency so the rest of the library stays plain Java.
  */
 public final class CrashLogger {
 
@@ -16,6 +18,6 @@ public final class CrashLogger {
     }
 
     public void e(final String tag, final String message) {
-        System.err.println("E/" + tag + ": " + message);
+        Log.e(tag, message);
     }
 }
