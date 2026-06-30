@@ -27,6 +27,9 @@ public final class CrashProcessor {
     private volatile boolean tracking = false;
     private volatile String token;
     private final AtomicLong sequence = new AtomicLong(0L);
+    // Per-instance salt (computed once, off the crash path) so crash files stay unique across
+    // multiple processes writing to a shared dir — nanoTime's origin differs per process.
+    private final String instanceTag = Long.toHexString(System.nanoTime());
 
     public CrashProcessor(final Redactor redactor, final CrashFileStore store,
                           final ExecutorService writerExecutor, final long flushTimeoutMillis,
@@ -53,7 +56,7 @@ public final class CrashProcessor {
         final String currentToken = token;
         final long crashTs = System.currentTimeMillis();
         final long threadId = thread != null ? thread.getId() : -1L;
-        final String fileBase = "crash_" + crashTs + "_" + sequence.getAndIncrement();
+        final String fileBase = "crash_" + crashTs + "_" + instanceTag + "_" + sequence.getAndIncrement();
 
         final CountDownLatch latch = new CountDownLatch(1);
         try {

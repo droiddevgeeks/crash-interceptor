@@ -166,6 +166,40 @@ disk stalls — and then crashsink delegates anyway rather than hang.
 | `flushTimeoutMillis` | max time the crashing thread blocks for the write | `1000` (tune from real write-latency telemetry) |
 | `ownedPrefix` | package prefix that marks a crash as yours | your SDK's root package, e.g. `"com.example.sdk."` |
 
+## Android integration notes
+
+- **API level:** clean on `minSdk` **21 → 36** with **no core-library desugaring** required
+  (see Requirements). No `java.nio.file`, no API-24 collection defaults.
+
+- **R8 / ProGuard — read this, it's the easy way to silently capture nothing.** Attribution
+  matches each crash's stack-frame class name against your `ownedPrefix`. If your build
+  **obfuscates** your SDK, runtime frames become `a.b.c` instead of `com.example.sdk.*`, so
+  nothing matches and your crashes are silently *not* captured (no error — just silence).
+  Keep your package names so the prefix still matches (class names may still be shortened —
+  the match is on the package prefix, not the full class name), and keep line numbers for
+  readable traces:
+
+  ```proguard
+  # crashsink: preserve your SDK's package names so attribution keeps working after R8
+  -keeppackagenames com.example.sdk.**
+  # readable line numbers in captured stack traces
+  -keepattributes SourceFile,LineNumberTable
+  ```
+
+  (If you ship a pre-obfuscated AAR, pass your *published* obfuscated root package as
+  `ownedPrefix` instead.)
+
+- **Logging:** the bundled `CrashLogger` writes to `System.err` (shows up in logcat). In a
+  real Android module, swap it for `android.util.Log` — it's the one platform seam.
+
+- **Threading / StrictMode:** all disk I/O runs on background executors, never the main
+  thread, so StrictMode's main-thread disk policies won't fire. The only main-thread time is
+  the bounded `flushTimeoutMillis` wait during an actual crash (the process is dying anyway).
+
+- **Multi-process apps:** crash files include a per-process salt, so separate processes
+  (`:remote` services, isolated WebView, etc.) writing to a shared crash dir won't collide.
+  Prefer giving each process its own crash dir if you can.
+
 ## Out of scope (v1)
 
 - **Native / NDK crashes** (SIGSEGV) — need a signal handler; different mechanism.
