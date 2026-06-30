@@ -85,6 +85,16 @@ public class CrashProcessorTest {
         assertFalse(p.persistBlocking(Thread.currentThread(), ourCrash()));
     }
 
+    @Test public void culpritIsTheAttributedCashfreeOriginNotFrameworkTopFrame() throws Exception {
+        Throwable t = new IllegalStateException("x");
+        t.setStackTrace(new StackTraceElement[]{
+                new StackTraceElement("android.os.Handler", "dispatchMessage", "Handler.java", 1),
+                new StackTraceElement("com.cashfree.pg.Worker", "run", "Worker.java", 2)});
+        String json = CrashProcessor.buildPayloadJson(t, 1L, "tok", new Redactor(), 5L);
+        org.json.JSONObject obj = new org.json.JSONObject(json);
+        assertEquals("com.cashfree.pg.Worker in run", obj.getString("culprit"));
+    }
+
     @Test public void timeoutReturnsFalseWhenWriteNeverRuns() {
         ExecutorService neverRuns = new AbstractExecutorService() {
             public void execute(Runnable r) { /* drop the task on the floor */ }

@@ -94,7 +94,6 @@ public final class CrashProcessor {
         final JSONArray values = new JSONArray();
         Throwable present = throwable;
         int guard = 0;
-        String culprit = "unknown";
         while (present != null && guard++ < 50) {
             final JSONArray frames = new JSONArray();
             final StackTraceElement[] trace = present.getStackTrace();
@@ -105,12 +104,9 @@ public final class CrashProcessor {
                     frame.put("module", el.getClassName());
                     frame.put("filename", el.getFileName());
                     frame.put("lineno", el.getLineNumber());
-                    frame.put("in_app", el.getClassName().startsWith("com.cashfree.pg."));
+                    frame.put("in_app", CrashFrames.isOurs(el.getClassName()));
                 } catch (Throwable ignored) { }
                 frames.put(frame);
-            }
-            if (trace.length > 0) {
-                culprit = trace[0].getClassName() + " in " + trace[0].getMethodName();
             }
             final JSONObject value = new JSONObject();
             try {
@@ -125,6 +121,12 @@ public final class CrashProcessor {
             final Throwable cause = present.getCause();
             present = (cause == present) ? null : cause;
         }
+
+        final StackTraceElement originFrame = CrashFrames.firstApplicationFrame(
+                CrashFrames.deepestCause(throwable).getStackTrace());
+        final String culprit = originFrame != null
+                ? originFrame.getClassName() + " in " + originFrame.getMethodName()
+                : "unknown";
 
         final JSONObject payload = new JSONObject();
         try {
