@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /** Builds the redacted crash payload and writes it within a bounded timeout. Never throws. */
 public final class CrashProcessor {
@@ -26,7 +27,7 @@ public final class CrashProcessor {
 
     private volatile boolean tracking = false;
     private volatile String token;
-    private long sequence = 0L;
+    private final AtomicLong sequence = new AtomicLong(0L);
 
     public CrashProcessor(final Redactor redactor, final CrashFileStore store,
                           final ExecutorService writerExecutor, final long flushTimeoutMillis) {
@@ -51,27 +52,33 @@ public final class CrashProcessor {
         final String currentToken = token;
         final long crashTs = System.currentTimeMillis();
         final long threadId = thread != null ? thread.getId() : -1L;
-        final String fileBase = "crash_" + crashTs + "_" + (sequence++);
+        final String fileBase = "crash_" + crashTs + "_" + sequence.getAndIncrement();
 
         final CountDownLatch latch = new CountDownLatch(1);
-        writerExecutor.submit(new Runnable() {
-            @Override public void run() {
-                try {
-                    final String json =
-                            buildPayloadJson(throwable, threadId, currentToken, redactor, crashTs);
-                    store.writeAtomic(fileBase, json);
-                } catch (Throwable t) {
-                    CFLoggerService.getInstance().e(TAG, "crash write failed: " + t.getMessage());
-                } finally {
-                    latch.countDown();
+        try {
+            writerExecutor.submit(new Runnable() {
+                @Override public void run() {
+                    try {
+                        final String json =
+                                buildPayloadJson(throwable, threadId, currentToken, redactor, crashTs);
+                        store.writeAtomic(fileBase, json);
+                    } catch (Throwable t) {
+                        CFLoggerService.getInstance().e(TAG, "crash write failed: " + t.getMessage());
+                    } finally {
+                        latch.countDown();
+                    }
                 }
-            }
-        });
+            });
+        } catch (Throwable t) {
+            // Executor rejected the task (e.g. shut down). Never propagate from the crash path.
+            CFLoggerService.getInstance().e(TAG, "crash write could not be scheduled: " + t.getMessage());
+            return false;
+        }
 
         try {
             final boolean flushed = latch.await(flushTimeoutMillis, TimeUnit.MILLISECONDS);
             if (!flushed) {
-                CFLoggerService.getInstance().e(TAG, "crash flush timed out; delegating anyway");
+                CFLoggerService.getInstance().e(TAG, "crash flush timed out");
             }
             return flushed;
         } catch (InterruptedException e) {
