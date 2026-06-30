@@ -73,23 +73,22 @@ it has a single platform dependency (`android.util.Log`, in `CrashLogger`).
 import com.droiddevgeeks.crashsink.CrashReporter;
 import com.droiddevgeeks.crashsink.CrashSink;
 
-import java.io.File;
-
 // 1. Implement where captured crashes go (called on a healthy process, off the main thread).
-CrashSink sink = (token, exceptionValues, level, culprit, timestamp) -> {
-    // Forward to your telemetry pipeline / backend. exceptionValues is a JSON string.
-    myBackend.uploadCrash(token, exceptionValues, level, culprit, timestamp);
+CrashSink sink = (token, exceptionValues, level, culprit, timestamp, contexts) -> {
+    // Forward to your telemetry pipeline / backend. exceptionValues and contexts are JSON strings.
+    myBackend.uploadCrash(token, exceptionValues, level, culprit, timestamp, contexts);
 };
 
-// 2. Build the reporter. The last argument is YOUR package prefix — the thing that
-//    marks a crash as "yours". Nothing about crashsink is hardcoded to a vendor.
-File crashDir = new File(context.getFilesDir(), "crashes"); // any writable dir
+// 2. Build the reporter from a Context — it derives the crash dir from getFilesDir() and
+//    attaches device/app metadata to every crash. The last arg is YOUR package prefix:
+//    the thing that marks a crash as "yours". Nothing about crashsink is hardcoded to a vendor.
 CrashReporter reporter = CrashReporter.create(
-        crashDir,
+        context,
         /* fileCap         */ 20,      // keep at most N crash files on disk
         /* flushTimeoutMs  */ 1000L,   // max time the crashing thread waits for the write
         sink,
         /* ownedPrefix     */ "com.example.sdk.");
+// (There's also a create(File crashDir, …) overload with no Context and no device metadata.)
 
 // 3. Install into the uncaught-handler chain. This also ingests any crashes
 //    that were persisted on a previous run and hands them to your sink.
@@ -113,12 +112,27 @@ public interface CrashSink {
                 String exceptionValues, // JSON array string: type, redacted message, stack frames, thread id
                 String level,           // "fatal"
                 String culprit,         // e.g. "com.example.sdk.Worker in run"
-                long timestamp);        // crash time, epoch millis
+                long timestamp,         // crash time, epoch millis
+                String contexts);       // JSON object: { device: {...}, memory: {...} }  ("{}" if none)
 }
 ```
 
 `submit` is invoked on a background thread during `install()` (next-launch ingestion), **not**
 at crash time. If it throws, the crash file is kept and retried on a future `install()`.
+
+`contexts` carries device/app metadata (collected once at `create(Context, …)` time, off the
+crash path) and JVM heap memory (read cheaply at crash time):
+
+```json
+{
+  "device": { "os_version": "13", "sdk_int": 33, "manufacturer": "Google",
+              "model": "Pixel 7", "app_version_name": "1.4.0", "app_version_code": 140 },
+  "memory": { "heap_free": 12345678, "heap_total": 50331648, "heap_max": 268435456 }
+}
+```
+
+(The `device` block is present only when you build with the `Context` overload; `memory` is
+always included. `contexts` is `"{}"` when built from the `File` overload.)
 
 ---
 
@@ -231,6 +245,8 @@ disk stalls — and then crashsink delegates anyway rather than hang.
 | `CrashIngestor` + `CrashSink` | Next-launch delivery; retry-safe |
 | `Redactor` | PAN / token / VPA scrubbing |
 | `CrashFrames` | Shared stack-frame classification |
+| `DeviceMetadata` | Pure-Java holder for device/app metadata |
+| `AndroidDeviceMetadata` | Collects `DeviceMetadata` from a `Context` (`Build.*` + `PackageManager`) |
 | `CrashLogger` | Thin wrapper over `android.util.Log` (the one platform seam) |
 
 ## Building & testing
