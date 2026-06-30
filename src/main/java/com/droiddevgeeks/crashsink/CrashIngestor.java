@@ -3,8 +3,9 @@ package com.droiddevgeeks.crashsink;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.util.List;
 import java.util.concurrent.Executor;
 
@@ -50,7 +51,7 @@ public final class CrashIngestor {
         final String culprit;
         final long timestamp;
         try {
-            final String content = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
+            final String content = readUtf8(file);
             final JSONObject json = new JSONObject(content);
             token = json.isNull("token") ? null : json.optString("token", null);
             exceptionValues = json.optString("exception_values", "[]");
@@ -70,5 +71,25 @@ public final class CrashIngestor {
             // Downstream submission failed; keep the file for retry on a future flush.
             CrashLogger.getInstance().e(TAG, "sink submit failed; keeping crash file for retry: " + t.getMessage());
         }
+    }
+
+    /**
+     * Reads a (small) crash file as UTF-8 using only java.io, so it works on Android API 21+
+     * with no java.nio.file dependency (java.nio.file is API 26+ and not desugared).
+     */
+    private static String readUtf8(final File file) throws IOException {
+        final int size = (int) file.length();
+        final byte[] buffer = new byte[size];
+        final FileInputStream in = new FileInputStream(file);
+        try {
+            int offset = 0;
+            int read;
+            while (offset < size && (read = in.read(buffer, offset, size - offset)) != -1) {
+                offset += read;
+            }
+        } finally {
+            in.close();
+        }
+        return new String(buffer, StandardCharsets.UTF_8);
     }
 }

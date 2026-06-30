@@ -41,9 +41,13 @@ attributes precisely, captures narrowly, and never breaks the chain.
 
 ## Requirements
 
-- Java 8+
-- `org.json` on the runtime classpath (provided by the Android platform; add it explicitly on
-  plain JVM — see below)
+- Java 8+ bytecode (compiles with `--release 8`; runs on any modern JVM)
+- **Android `minSdk` 21+ (Android 5.0) through API 36** — uses only `java.io` and core APIs
+  available since API 21. **No core-library desugaring required.** (Deliberately avoids
+  `java.nio.file`, which is API 26+ and not desugared, and `List.sort`/`Comparator.comparingLong`,
+  which need API 24.)
+- `org.json` on the runtime classpath (provided by the Android platform on every API level;
+  add it explicitly only on a plain JVM — see below)
 
 ## Adding it to your build
 

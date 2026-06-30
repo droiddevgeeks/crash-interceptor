@@ -4,10 +4,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
@@ -46,12 +44,13 @@ public final class CrashFileStore {
                 out.close();
             }
         }
-        try {
-            Files.move(temp.toPath(), target.toPath(),
-                    StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException e) {
-            // Filesystem doesn't support atomic move; fall back to a plain replace.
-            Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        // File.renameTo maps to rename(2) on Android/Linux (and APFS/HFS+ on the dev host):
+        // an atomic replace within the same directory. Uses only java.io, so it works on
+        // Android API 21+ with no java.nio.file dependency. Crash file names are unique, so
+        // the target normally does not pre-exist; on the rare failure we leave the temp for
+        // sweepTemps() and surface it rather than destroying any existing target.
+        if (!temp.renameTo(target)) {
+            throw new IOException("Atomic rename failed: " + temp + " -> " + target);
         }
         enforceCap();
     }
@@ -66,7 +65,13 @@ public final class CrashFileStore {
                 }
             }
         }
-        crashes.sort(Comparator.comparingLong(File::lastModified));
+        // Collections.sort + explicit Comparator (Long.compare is API 19+) avoids
+        // List.sort / Comparator.comparingLong, which need Android API 24 or desugaring.
+        Collections.sort(crashes, new Comparator<File>() {
+            @Override public int compare(final File a, final File b) {
+                return Long.compare(a.lastModified(), b.lastModified());
+            }
+        });
         return crashes;
     }
 
