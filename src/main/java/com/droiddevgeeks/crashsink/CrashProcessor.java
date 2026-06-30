@@ -88,7 +88,7 @@ public final class CrashProcessor {
         }
     }
 
-    /** Pure payload builder: a CFLoggedException-shaped JSON object. */
+    /** Pure payload builder: a JSON object describing the crash and its cause chain. */
     static String buildPayloadJson(final Throwable throwable, final long threadId,
                                    final String token, final Redactor redactor,
                                    final long crashTimestamp, final String ownedPrefix) {
