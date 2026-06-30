@@ -14,3 +14,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "crashsink"
+include(":crashsink")
+include(":sample")

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <Button
+            android:id="@+id/btnCrashSdk"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Crash in SDK code (captured)" />
+
+        <Button
+            android:id="@+id/btnCrashHost"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Crash in host code (delegated)" />
+
+        <Button
+            android:id="@+id/btnJavaInterop"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Java interop demo" />
+
+        <TextView
+            android:id="@+id/log"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="16dp"
+            android:fontFamily="monospace"
+            android:textSize="12sp" />
+    </LinearLayout>
+</ScrollView>
