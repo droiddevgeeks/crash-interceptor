@@ -19,7 +19,7 @@ dependencies {
     implementation("org.json:json:20231013")
 
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.mockito:mockito-core:4.11.0")
+    testImplementation("org.mockito:mockito-inline:4.11.0")
 }
 
 tasks.test {
