@@ -47,8 +47,11 @@ This is an **Android library** (`com.android.library`):
   since API 21, so **no core-library desugaring required**. (Deliberately avoids `java.nio.file`,
   which is API 26+ and not desugared, and `List.sort`/`Comparator.comparingLong`, which need API 24.)
   The code is in fact API-19-safe, so it also drops into `minSdk 19` modules unchanged.
-- **Java 8** source/target (broad device reach).
-- Toolchain: **AGP 8.8.2 / Gradle 8.10.2** (pinned to match a typical Android SDK module).
+- **Written in Kotlin**, compiled to **Java 8 bytecode** (`jvmTarget = 1.8`, broad device reach).
+  The public API is fully Java-interoperable — static factories, SAM `CrashSink`, and plain
+  field access on `DeviceMetadata` all work from Java (see Quick start above and the `:sample`
+  app's `JavaInteropDemo.java`).
+- Toolchain: **AGP 8.8.2 / Gradle 8.10.2 / Kotlin 2.0.21** (pinned to match a typical Android module).
 - `org.json` is provided by the Android platform — no dependency to add. (It's pulled in only as
   a *test* dependency, because the platform's `org.json` is a throwing stub under host unit tests.)
 
@@ -102,6 +105,18 @@ reporter.stopCapturing();
 
 // 5. When the reporter is no longer needed (or before re-creating one), release its threads.
 reporter.shutdown();
+```
+
+From **Kotlin** the same API reads naturally — the sink is a trailing lambda:
+
+```kotlin
+val reporter = CrashReporter.create(context, fileCap = 20, flushTimeoutMillis = 1000L,
+    sink = CrashSink { token, exceptionValues, level, culprit, timestamp, contexts ->
+        myBackend.uploadCrash(token, exceptionValues, level, culprit, timestamp, contexts)
+    },
+    ownedPrefix = "com.example.sdk.")
+reporter.install()
+reporter.startCapturing(sessionId)
 ```
 
 ### The `CrashSink` you implement
@@ -245,19 +260,28 @@ disk stalls — and then crashsink delegates anyway rather than hang.
 | `CrashIngestor` + `CrashSink` | Next-launch delivery; retry-safe |
 | `Redactor` | PAN / token / VPA scrubbing |
 | `CrashFrames` | Shared stack-frame classification |
-| `DeviceMetadata` | Pure-Java holder for device/app metadata |
+| `DeviceMetadata` | Immutable holder for device/app metadata (`@JvmField` fields for Java callers) |
 | `AndroidDeviceMetadata` | Collects `DeviceMetadata` from a `Context` (`Build.*` + `PackageManager`) |
 | `CrashLogger` | Thin wrapper over `android.util.Log` (the one platform seam) |
 
 ## Building & testing
 
+The repo is a two-module Gradle build: `:crashsink` (the library) and `:sample` (a runnable
+demo app that consumes it).
+
 ```bash
-./gradlew testDebugUnitTest    # 46 unit tests
-./gradlew assembleRelease      # produces build/outputs/aar/crashsink-release.aar
+./gradlew :crashsink:testDebugUnitTest   # 50 unit tests
+./gradlew :crashsink:assembleRelease     # -> crashsink/build/outputs/aar/crashsink-release.aar
+./gradlew :sample:assembleDebug          # builds the demo APK
 ```
 
 Unit tests run on the host JVM (JUnit 4 + Mockito, `returnDefaultValues` for `android.*`); no
 device or emulator required. Requires the Android SDK (`ANDROID_HOME`) with `compileSdk 35`.
+
+The `:sample` app demonstrates the contract end to end: a "Crash in SDK code" button (captured),
+a "Crash in host code" button (delegated to the host handler), and a "Java interop demo" button
+that drives the API from a Java class — see
+[`JavaInteropDemo.java`](sample/src/main/java/com/droiddevgeeks/sample/JavaInteropDemo.java).
 
 ## License
 

@@ -1,7 +1,9 @@
 .gradle/
 build/
+*/build/
 bin/
 .sdd/
 .history/
 local.properties
 .cxx/
+.vscode/
