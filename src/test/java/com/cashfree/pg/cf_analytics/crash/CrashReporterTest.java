@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class CrashReporterTest {
@@ -55,10 +56,12 @@ public class CrashReporterTest {
     }
 
     private CrashReporter newReporter(CrashFileStore store, CrashSink sink) {
-        CrashProcessor processor = new CrashProcessor(new Redactor(), store, directExecutor(), 1000L);
+        ExecutorService writer = directExecutor();
+        ExecutorService io = directExecutor();
+        CrashProcessor processor = new CrashProcessor(new Redactor(), store, writer, 1000L);
         CrashHandlerManager manager = new CrashHandlerManager(new CrashAttributor(), processor);
-        CrashIngestor ingestor = new CrashIngestor(store, sink, directExecutor());
-        return new CrashReporter(manager, processor, ingestor);
+        CrashIngestor ingestor = new CrashIngestor(store, sink, io);
+        return new CrashReporter(manager, processor, ingestor, writer, io);
     }
 
     @Before public void setUp() {
@@ -115,5 +118,21 @@ public class CrashReporterTest {
         assertEquals(1, sink.tokens.size());
         assertEquals("tok-prev", sink.tokens.get(0));
         assertEquals(0, store.listCompleted().size());
+    }
+
+    @Test public void shutdownStopsBothExecutors() throws IOException {
+        File dir = tmp.newFolder("cashfree_crashes");
+        CrashFileStore store = new CrashFileStore(dir, 20);
+        ExecutorService writer = Executors.newSingleThreadExecutor();
+        ExecutorService io = Executors.newSingleThreadExecutor();
+        CrashProcessor processor = new CrashProcessor(new Redactor(), store, writer, 1000L);
+        CrashHandlerManager manager = new CrashHandlerManager(new CrashAttributor(), processor);
+        CrashIngestor ingestor = new CrashIngestor(store, new RecordingSink(), io);
+        CrashReporter reporter = new CrashReporter(manager, processor, ingestor, writer, io);
+
+        reporter.shutdown();
+
+        assertTrue(writer.isShutdown());
+        assertTrue(io.isShutdown());
     }
 }
