@@ -4,6 +4,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -31,21 +34,24 @@ public final class CrashFileStore {
         FileOutputStream out = null;
         try {
             out = new FileOutputStream(temp);
-            out.write(content.getBytes(StandardCharsets.UTF_8));
+            try {
+                out.write(content.getBytes(StandardCharsets.UTF_8));
+            } catch (IOException e) {
+                temp.delete();
+                throw e;
+            }
             // Intentionally NO fsync: atomicity comes from rename, not durability.
         } finally {
             if (out != null) {
                 out.close();
             }
         }
-        if (!temp.renameTo(target)) {
-            // Fallback: rename can fail if target exists on some filesystems.
-            if (target.exists() && target.delete() && temp.renameTo(target)) {
-                // recovered
-            } else {
-                temp.delete();
-                throw new IOException("Atomic rename failed for " + temp);
-            }
+        try {
+            Files.move(temp.toPath(), target.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException e) {
+            // Filesystem doesn't support atomic move; fall back to a plain replace.
+            Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
         }
         enforceCap();
     }
@@ -82,6 +88,9 @@ public final class CrashFileStore {
     }
 
     private void enforceCap() {
+        if (maxFiles <= 0) {
+            return;
+        }
         final List<File> crashes = listCompleted(); // oldest first
         for (int i = 0; i < crashes.size() - maxFiles; i++) {
             crashes.get(i).delete();

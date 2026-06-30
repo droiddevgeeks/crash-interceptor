@@ -63,4 +63,21 @@ public class CrashFileStoreTest {
         store.delete(f);
         assertEquals(0, store.listCompleted().size());
     }
+
+    @Test public void sameBaseNameOverwritesAtomicallyToOneFile() throws IOException {
+        CrashFileStore store = new CrashFileStore(dir, 20);
+        store.writeAtomic("dup", "first");
+        store.writeAtomic("dup", "second");
+        List<File> files = store.listCompleted();
+        assertEquals(1, files.size());
+        assertEquals("second", new String(Files.readAllBytes(files.get(0).toPath()), StandardCharsets.UTF_8));
+    }
+
+    @Test public void nonPositiveCapKeepsAllFiles() throws IOException {
+        CrashFileStore store = new CrashFileStore(dir, 0);
+        store.writeAtomic("a", "1");
+        store.writeAtomic("b", "2");
+        store.writeAtomic("c", "3");
+        assertEquals(3, store.listCompleted().size());
+    }
 }
