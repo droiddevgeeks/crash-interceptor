@@ -189,6 +189,19 @@ disk stalls — and then crashsink delegates anyway rather than hang.
   (If you ship a pre-obfuscated AAR, pass your *published* obfuscated root package as
   `ownedPrefix` instead.)
 
+  The repo ships [`consumer-rules.pro`](consumer-rules.pro) (keeps crashsink's public API in
+  the consuming app's R8 run, plus the fill-in template above) and
+  [`proguard-rules.pro`](proguard-rules.pro) (for self-minifying the AAR). They are **inert in
+  this standalone JVM build** — wire them up when crashsink is built as an `com.android.library`:
+
+  ```kotlin
+  android {
+      defaultConfig { consumerProguardFiles("consumer-rules.pro") }
+      // and, only if you minify the AAR itself:
+      // buildTypes { release { proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro") } }
+  }
+  ```
+
 - **Logging:** the bundled `CrashLogger` writes to `System.err` (shows up in logcat). In a
   real Android module, swap it for `android.util.Log` — it's the one platform seam.
 
