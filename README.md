@@ -195,4 +195,8 @@ Tests run on the host JVM (JUnit 4 + Mockito); no Android device or emulator req
 
 ## License
 
-TODO: add a license.
+[Apache License 2.0](LICENSE) — Copyright 2026 droiddevgeeks.
+
+Permissive and the de-facto standard for Android/JVM libraries: free to embed in
+proprietary apps and SDKs, with an explicit patent grant that gives adopters' legal teams
+the comfort MIT's silence on patents doesn't. See [`NOTICE`](NOTICE) for attribution.
