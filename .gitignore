@@ -7,3 +7,5 @@ bin/
 local.properties
 .cxx/
 .vscode/
+.kotlin/
+.idea/

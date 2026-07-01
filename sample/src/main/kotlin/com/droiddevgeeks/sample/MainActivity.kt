@@ -28,7 +28,10 @@ class MainActivity : Activity() {
         //    *decorates* the chain (delegates to whatever was there) rather than replacing it.
         val systemHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            Log.e(TAG, "HOST HANDLER saw it: ${throwable.javaClass.simpleName}")
+            Log.e(
+                TAG,
+                "HOST HANDLER saw it: ${throwable.javaClass.simpleName} and message --> ${throwable.message}"
+            )
             systemHandler?.uncaughtException(thread, throwable)
         }
 

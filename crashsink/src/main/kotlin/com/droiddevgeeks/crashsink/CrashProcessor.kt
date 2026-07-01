@@ -44,6 +44,9 @@ class CrashProcessor(
         }
         val currentToken = token
         val crashTs = System.currentTimeMillis()
+        // Thread.getId() is deprecated on SDK 36 in favor of threadId(), but threadId() is
+        // API 36+ and we support minSdk 21 — keep getId() so old devices don't crash.
+        @Suppress("DEPRECATION")
         val threadId = thread?.id ?: -1L
         val fileBase = "crash_" + crashTs + "_" + instanceTag + "_" + sequence.getAndIncrement()
 

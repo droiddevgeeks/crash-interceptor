@@ -43,7 +43,7 @@ attributes precisely, captures narrowly, and never breaks the chain.
 
 This is an **Android library** (`com.android.library`):
 
-- **`minSdk` 21 (Android 5.0) → `compileSdk` 35** — uses only `java.io` and core APIs available
+- **`minSdk` 21 (Android 5.0) → `compileSdk` 36** — uses only `java.io` and core APIs available
   since API 21, so **no core-library desugaring required**. (Deliberately avoids `java.nio.file`,
   which is API 26+ and not desugared, and `List.sort`/`Comparator.comparingLong`, which need API 24.)
   The code is in fact API-19-safe, so it also drops into `minSdk 19` modules unchanged.
@@ -51,7 +51,7 @@ This is an **Android library** (`com.android.library`):
   The public API is fully Java-interoperable — static factories, SAM `CrashSink`, and plain
   field access on `DeviceMetadata` all work from Java (see Quick start above and the `:sample`
   app's `JavaInteropDemo.java`).
-- Toolchain: **AGP 8.8.2 / Gradle 8.10.2 / Kotlin 2.0.21** (pinned to match a typical Android module).
+- Toolchain: **AGP 8.11.1 / Gradle 8.14.3 / Kotlin 2.0.21** (pinned to match a typical Android module).
 - `org.json` is provided by the Android platform — no dependency to add. (It's pulled in only as
   a *test* dependency, because the platform's `org.json` is a throwing stub under host unit tests.)
 
@@ -276,7 +276,7 @@ demo app that consumes it).
 ```
 
 Unit tests run on the host JVM (JUnit 4 + Mockito, `returnDefaultValues` for `android.*`); no
-device or emulator required. Requires the Android SDK (`ANDROID_HOME`) with `compileSdk 35`.
+device or emulator required. Requires the Android SDK (`ANDROID_HOME`) with `compileSdk 36`.
 
 The `:sample` app demonstrates the contract end to end: a "Crash in SDK code" button (captured),
 a "Crash in host code" button (delegated to the host handler), and a "Java interop demo" button

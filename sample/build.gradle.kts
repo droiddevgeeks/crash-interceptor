@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "com.droiddevgeeks.sample"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.droiddevgeeks.sample"
         minSdk = 21
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
     }
