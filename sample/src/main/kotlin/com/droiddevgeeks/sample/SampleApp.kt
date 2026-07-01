@@ -30,9 +30,9 @@ class SampleApp : Application() {
             /* fileCap = */ 20,
             /* flushTimeoutMillis = */ 1000L,
             { token, _, level, culprit, timestamp, context ->
-                // Runs on the ingest thread. Log to logcat and buffer for the UI.
-                Log.i(TAG, "sink received crash: culprit=$culprit level=$level ts=$timestamp context=$context")
-                CrashLog.add("INGESTED  culprit=$culprit  token=$token  context=$context")
+                // Runs on the ingest thread. A real integration would POST to a backend here;
+                // the sample just logs each previous-run crash it delivers.
+                Log.i(TAG, "INGESTED crash: culprit=$culprit token=$token level=$level ts=$timestamp context=$context")
             },
             OWNED_PREFIX
         )
