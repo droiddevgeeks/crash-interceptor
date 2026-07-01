@@ -320,6 +320,14 @@ demo app that consumes it).
 Unit tests run on the host JVM (JUnit 4 + Mockito, `returnDefaultValues` for `android.*`); no
 device or emulator required. Requires the Android SDK (`ANDROID_HOME`) with `compileSdk 36`.
 
+The `:sample` app uses Firebase Crashlytics, so it needs a `google-services.json`. That file is
+**gitignored** (it carries an app-restricted Firebase client key we keep out of the repo). Before
+building the sample, copy the template and drop in your own Firebase Android app config:
+
+```bash
+cp sample/google-services.json.example sample/google-services.json   # then fill in real values
+```
+
 The `:sample` app demonstrates the contract end to end: a "Crash in SDK code" button (captured),
 a "Crash in host code" button (delegated to the host handler), and a "Java interop demo" button
 that drives the API from a Java class — see

@@ -9,3 +9,8 @@ local.properties
 .vscode/
 .kotlin/
 .idea/
+
+# Firebase config carries an app-restricted client key — keep the real one out of
+# the repo. Copy sample/google-services.json.example to google-services.json and
+# drop in your own Firebase Android app config.
+sample/google-services.json
