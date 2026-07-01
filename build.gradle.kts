@@ -6,4 +6,5 @@ plugins {
     id("org.jetbrains.kotlin.android") version "2.2.20" apply false
     // Add the dependency for the Google services Gradle plugin
     id("com.google.gms.google-services") version "4.5.0" apply false
+    id("com.google.firebase.crashlytics") version "3.0.7" apply false
 }
