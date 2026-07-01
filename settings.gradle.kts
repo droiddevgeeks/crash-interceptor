@@ -13,6 +13,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "crashsink"
+rootProject.name = "crash-interceptor"
 include(":crashsink")
 include(":sample")
