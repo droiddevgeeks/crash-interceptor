@@ -237,11 +237,38 @@ outages; `0` disables eviction (unbounded — avoid on-device); `1` defeats the 
   (If you ship a pre-obfuscated AAR, pass your *published* obfuscated root package as
   `ownedPrefix` instead.)
 
-  The build already wires [`consumer-rules.pro`](consumer-rules.pro) via
-  `consumerProguardFiles(...)`, so it is **bundled into the AAR** (as `proguard.txt`) and applied
-  automatically to the consuming app's R8 run — it keeps crashsink's public API and carries the
-  fill-in template above. [`proguard-rules.pro`](proguard-rules.pro) is wired for self-minifying
-  the AAR (off by default, as libraries usually ship un-minified).
+  **Who adds the rule, and where — this depends on how you use crashsink:**
+
+  crashsink itself **cannot** ship this rule for you. R8 runs at the *host app's* build time
+  and only you know your package; there is no runtime hook that can undo obfuscation after the
+  fact. So the rule must live with whoever owns the attributed code. Two shapes:
+
+  - **Case A — an app attributes its own crashes.** The app passes its own package as
+    `ownedPrefix` and adds `-keeppackagenames com.theirapp.**` to its **own** `proguard-rules.pro`.
+    Done — it owns the code and its own build.
+
+  - **Case B — your SDK embeds crashsink** (the "guest-SDK crash reporter" use case). You attribute
+    *your* SDK's crashes inside a host app you don't control. Ship the keep rule in **your SDK's own
+    `consumer-rules.pro`**, bundled into your AAR — R8 applies every dependency's consumer rules to
+    the host build automatically, so **the host app adds nothing and knows nothing**. This is the
+    intended path. Copy [`docs/embedding-sdk-consumer-rules.pro`](docs/embedding-sdk-consumer-rules.pro)
+    into your SDK module, replace `com.yoursdk` with your package, and wire it with
+    `consumerProguardFiles("consumer-rules.pro")`.
+
+    ```
+    Host App  ──depends on──▶  YourSDK.aar (embeds crashsink, ownedPrefix "com.yoursdk.")
+                                └─ consumer-rules.pro: -keeppackagenames com.yoursdk.**
+                                   ▲ travels inside your AAR; enforced in the host's R8 run
+    ```
+
+    > ⚠️ If you forget this in Case B, there is no error — attribution just silently captures
+    > nothing in obfuscated host builds. Verify against a real minified build, not a debug one.
+
+  crashsink's **own** [`consumer-rules.pro`](consumer-rules.pro) is wired via
+  `consumerProguardFiles(...)`, so it is **bundled into the crashsink AAR** (as `proguard.txt`) and
+  applied automatically — it keeps crashsink's public API and carries the fill-in template above.
+  [`proguard-rules.pro`](proguard-rules.pro) is wired for self-minifying the AAR (off by default, as
+  libraries usually ship un-minified).
 
 - **Logging:** `CrashLogger` wraps `android.util.Log` — the one platform seam. (Host unit tests
   use `testOptions.unitTests.isReturnDefaultValues = true`, so `Log` calls are no-ops there.)
