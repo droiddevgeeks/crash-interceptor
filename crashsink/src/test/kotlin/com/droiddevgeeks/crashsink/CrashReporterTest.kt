@@ -148,6 +148,38 @@ class CrashReporterTest {
         reporter.shutdown()
     }
 
+    @Test fun exposesSaneDefaultConstants() {
+        assertEquals(20, CrashReporter.DEFAULT_FILE_CAP)
+        assertEquals(1000L, CrashReporter.DEFAULT_FLUSH_TIMEOUT_MS)
+    }
+
+    @Test @Suppress("DEPRECATION") fun convenienceContextOverloadUsesDefaultsAndCaptures() {
+        val filesDir = tmp.newFolder("files")
+
+        val context = mock(Context::class.java)
+        val pm = mock(PackageManager::class.java)
+        val pi = PackageInfo()
+        pi.versionName = "1.2.3"
+        pi.versionCode = 42
+        `when`(context.filesDir).thenReturn(filesDir)
+        `when`(context.packageManager).thenReturn(pm)
+        `when`(context.packageName).thenReturn("com.example")
+        `when`(pm.getPackageInfo("com.example", 0)).thenReturn(pi)
+
+        // Three-arg convenience overload: no fileCap / flushTimeout passed.
+        val reporter = CrashReporter.create(context, RecordingSink(), "com.example.")
+        reporter.install()
+        reporter.startCapturing("tok-default")
+
+        Thread.getDefaultUncaughtExceptionHandler()!!.uncaughtException(Thread.currentThread(), ourCrash())
+
+        val store = CrashFileStore(File(filesDir, "crashes"), CrashReporter.DEFAULT_FILE_CAP)
+        assertEquals(1, store.listCompleted().size) // captured with default cap
+        assertTrue(previous.called)                  // delegated to host
+
+        reporter.shutdown()
+    }
+
     @Test fun shutdownStopsBothExecutors() {
         val dir = tmp.newFolder("crashes")
         val store = CrashFileStore(dir, 20)

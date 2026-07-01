@@ -192,12 +192,27 @@ disk stalls — and then crashsink delegates anyway rather than hang.
 
 ## Configuration
 
-| Parameter | Meaning | Suggested |
+| Parameter | Meaning | Default / Suggested |
 |---|---|---|
 | `crashDir` | directory for crash files (one file per crash) | app-private storage |
-| `fileCap` | max crash files retained (oldest evicted) | `20` |
-| `flushTimeoutMillis` | max time the crashing thread blocks for the write | `1000` (tune from real write-latency telemetry) |
+| `fileCap` | max crash files retained; **oldest evicted** beyond this | `20` (`CrashReporter.DEFAULT_FILE_CAP`) |
+| `flushTimeoutMillis` | max time the crashing thread blocks for the write | `1000` (`CrashReporter.DEFAULT_FLUSH_TIMEOUT_MS`; tune from real write-latency telemetry) |
 | `ownedPrefix` | package prefix that marks a crash as yours | your SDK's root package, e.g. `"com.example.sdk."` |
+
+`fileCap` and `flushTimeoutMillis` are optional — call the three-arg convenience overload to accept
+the defaults, or the full overload to tune them:
+
+```kotlin
+CrashReporter.create(context, sink, "com.example.sdk.")            // defaults: cap 20, timeout 1000ms
+CrashReporter.create(context, 50, 1500L, sink, "com.example.sdk.") // explicit
+```
+
+**`fileCap` is a bound on the failure path, not the steady state.** In the happy path (crash →
+next-launch upload → delete) you rarely hold more than one file. It matters when delivery fails
+(a down/flaky `CrashSink` keeps files for retry), when the app crash-loops (files written faster
+than they ingest), or across multiple processes sharing the dir — there the cap stops the crash
+dir from growing without limit, evicting the oldest crashes first. Raise it to tolerate longer
+outages; `0` disables eviction (unbounded — avoid on-device); `1` defeats the retry guarantee.
 
 ## Android integration notes
 

@@ -96,6 +96,21 @@ public class JavaInteropTest {
         reporter.shutdown();
     }
 
+    @Test public void convenienceOverloadAndDefaultConstantsCallableFromJava() throws Exception {
+        // The default cap constant is a plain static field from Java.
+        assertEquals(20, CrashReporter.DEFAULT_FILE_CAP);
+        assertEquals(1000L, CrashReporter.DEFAULT_FLUSH_TIMEOUT_MS);
+
+        File dir = tmp.newFolder("crashes");
+        CrashSink sink = (token, ev, level, culprit, ts, ctx) -> { /* no-op */ };
+
+        // Three-arg convenience overload (defaults for fileCap + flushTimeout), from Java.
+        CrashReporter reporter = CrashReporter.create(dir, sink, "com.example.");
+        reporter.startCapturing("session-j-default");
+        reporter.stopCapturing();
+        reporter.shutdown();
+    }
+
     @Test public void wiringConstructorCaptureAndIngestRoundTripFromJava() throws Exception {
         File dir = tmp.newFolder("crashes");
         CrashFileStore store = new CrashFileStore(dir, 20);

@@ -48,6 +48,20 @@ class CrashReporter(
     }
 
     companion object {
+        /**
+         * Default max number of crash files retained on disk (oldest evicted beyond this).
+         *
+         * The cap bounds the *failure* path: a down/flaky [CrashSink] keeps files for retry, and
+         * a crash-looping or multi-process app can write faster than they are ingested. 20 keeps a
+         * burst of crashes / a temporary delivery outage without letting the crash dir grow
+         * unbounded. Set a larger value to tolerate longer outages; `0` disables eviction entirely
+         * (unbounded — not recommended on a device). Setting it to `1` defeats the retry guarantee.
+         */
+        const val DEFAULT_FILE_CAP: Int = 20
+
+        /** Default ceiling (ms) the crashing thread waits for the write before delegating anyway. */
+        const val DEFAULT_FLUSH_TIMEOUT_MS: Long = 1000L
+
         @JvmStatic
         fun create(
             crashDir: File,
@@ -73,6 +87,20 @@ class CrashReporter(
             val metadata = AndroidDeviceMetadata.collect(context)
             return create(crashDir, fileCap, flushTimeoutMillis, sink, ownedPrefix, metadata)
         }
+
+        /**
+         * Convenience overload using [DEFAULT_FILE_CAP] and [DEFAULT_FLUSH_TIMEOUT_MS]. Derives the
+         * crash dir from [Context.getFilesDir] and attaches device/app metadata. Callable from
+         * Kotlin and Java; use the full overload to tune `fileCap` / `flushTimeoutMillis`.
+         */
+        @JvmStatic
+        fun create(context: Context, sink: CrashSink, ownedPrefix: String): CrashReporter =
+            create(context, DEFAULT_FILE_CAP, DEFAULT_FLUSH_TIMEOUT_MS, sink, ownedPrefix)
+
+        /** Convenience overload for a caller-supplied dir, using the default cap and flush timeout. */
+        @JvmStatic
+        fun create(crashDir: File, sink: CrashSink, ownedPrefix: String): CrashReporter =
+            create(crashDir, DEFAULT_FILE_CAP, DEFAULT_FLUSH_TIMEOUT_MS, sink, ownedPrefix, null)
 
         private fun create(
             crashDir: File,
