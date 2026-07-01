@@ -55,6 +55,6 @@ dependencies {
     // org.json is provided by the Android platform at runtime; on the host JVM unit-test
     // classpath we supply a real impl (the platform's is a throwing stub under unit tests).
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.mockito:mockito-core:5.14.2")
-    testImplementation("org.json:json:20231013")
+    testImplementation("org.mockito:mockito-core:5.23.0")
+    testImplementation("org.json:json:20260522")
 }

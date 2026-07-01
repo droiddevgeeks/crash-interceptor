@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -11,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.droiddevgeeks.sample"
-        minSdk = 21
+        minSdk = 23
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -39,4 +40,10 @@ dependencies {
     // Sibling-module dependency: robust build ordering, identical runtime behavior to the
     // published .aar (the library carries zero runtime deps — org.json is platform-provided).
     implementation(project(":crashsink"))
+
+    // Import the Firebase BoM
+    implementation(platform("com.google.firebase:firebase-bom:34.15.0"))
+    // Crashlytics installs its OWN Thread.UncaughtExceptionHandler — this is the real
+    // third-party crash reporter that crashsink decorates and always delegates to.
+    implementation("com.google.firebase:firebase-crashlytics")
 }

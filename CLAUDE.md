@@ -31,7 +31,7 @@ the Android SDK (`ANDROID_HOME`) with API 36 installed. `--add-opens java.base/j
 is already wired for mockito's inline mock-maker (it mocks final Kotlin classes).
 
 Toolchain is **pinned to exact versions** (never use `+`/dynamic ranges): Gradle 8.14.3,
-AGP 8.13.2, Kotlin 2.0.21. Plugin versions live once in the root `build.gradle.kts`
+AGP 8.13.2, Kotlin 2.2.20. Plugin versions live once in the root `build.gradle.kts`
 (`apply false`); subprojects apply without restating versions.
 
 ## Architecture — the crash pipeline

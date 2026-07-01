@@ -13,13 +13,13 @@
             android:id="@+id/btnCrashSdk"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Crash in SDK code (captured)" />
+            android:text="Crash in SDK code (crashsink + Crashlytics)" />
 
         <Button
             android:id="@+id/btnCrashHost"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Crash in host code (delegated)" />
+            android:text="Crash in host code (Crashlytics only)" />
 
         <Button
             android:id="@+id/btnJavaInterop"
