@@ -105,8 +105,41 @@ Kotlin instead.
   `src/test/kotlin` (+ the one `src/test/java` interop test). Ships `consumer-rules.pro`
   (bundled into the AAR) and `proguard-rules.pro`.
 - `:sample` — a runnable demo app (`com.android.application`, plain `Activity`, no AppCompat) that
-  consumes `:crashsink` via a project dependency. `com.droiddevgeeks.fakesdk.FakeSdk` is a pretend
-  third-party SDK; `JavaInteropDemo.java` drives the API from Java.
+  consumes the **published JitPack artifact** (`com.github.droiddevgeeks:crash-interceptor:<tag>`),
+  not `:crashsink` via a project dependency — the project dep is left commented out in
+  `sample/build.gradle.kts` for easy switch-back during local library dev. This dogfoods the exact
+  AAR external consumers get, but means local `:crashsink` changes won't reach the sample until
+  republished (bump + tag). `com.droiddevgeeks.fakesdk.FakeSdk` is a pretend third-party SDK;
+  `JavaInteropDemo.java` drives the API from Java.
+
+## Publishing (JitPack)
+
+The library is published via **JitPack**, which builds from a Git tag — there is no upload step and
+no artifact registry credentials. Release flow: `git tag <x> && git push origin <x>` (GitHub
+**auto-creates a Release** on tag push; use `gh release edit <x>` to fill in notes, not
+`gh release create` — that 422s on the existing release). Verify the build is green at
+`jitpack.io/#droiddevgeeks/crash-interceptor` before announcing a version.
+
+- **`:crashsink/build.gradle.kts`** applies `maven-publish` with an AGP `singleVariant("release")
+  { withSourcesJar() }` block and an `afterEvaluate` publication (the `release` software component
+  only exists post-evaluation). There is **no `repositories {}` block** — JitPack owns the
+  destination; `./gradlew :crashsink:publishToMavenLocal` installs the same artifact to `~/.m2` for
+  local smoke-testing.
+- **`jitpack.yml`** (repo root) pins **JDK 17** (AGP 8.13 needs it) and runs only
+  `./gradlew :crashsink:publishToMavenLocal`, so `:sample`'s `google-services` task never executes —
+  a missing (untracked) `google-services.json` on a fresh JitPack clone therefore can't break the
+  release build.
+- **Coordinate quirk:** because only `:crashsink` publishes, JitPack collapses it to the
+  **repo-level** coordinate `com.github.droiddevgeeks:crash-interceptor:<tag>` (served AAR is named
+  `crash-interceptor-<tag>.aar`, contents unchanged). It is **not** the multi-module
+  `com.github.<owner>.<repo>:<module>:<tag>` form — that only appears if a *second* module ever
+  publishes, which would silently change the coordinate. Keep `:crashsink` the sole published module.
+- **`version`** in `crashsink/build.gradle.kts` defaults to `0.1.0` (override with `-Pversion=`), but
+  JitPack ignores it and serves under the **Git tag** — the tag is the source of truth.
+- Tags are effectively **immutable** on JitPack (a moved tag may keep serving a stale cached build):
+  never move a tag; always bump.
+
+A long-form write-up of the design lives at `docs/medium-article.md` (a Medium draft).
 
 ## R8/obfuscation gotcha (consumers)
 
