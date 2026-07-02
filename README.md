@@ -1,5 +1,7 @@
 # crashsink
 
+[![](https://jitpack.io/v/droiddevgeeks/crash-interceptor.svg)](https://jitpack.io/#droiddevgeeks/crash-interceptor)
+
 A tiny, dependency-light crash interceptor for the JVM that captures **only the crashes
 caused by your code** and stays out of everyone else's way.
 
