@@ -139,8 +139,6 @@ no artifact registry credentials. Release flow: `git tag <x> && git push origin 
 - Tags are effectively **immutable** on JitPack (a moved tag may keep serving a stale cached build):
   never move a tag; always bump.
 
-A long-form write-up of the design lives at `docs/medium-article.md` (a Medium draft).
-
 ## R8/obfuscation gotcha (consumers)
 
 Attribution matches on package name. If a consumer obfuscates their SDK package, runtime frames become

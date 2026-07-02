@@ -17,9 +17,6 @@ crash → [crashsink] → host's handler (Firebase/Sentry/…) → system
             └─ if the crash is yours: redact → write a small file → (next launch) hand to your sink
 ```
 
-> 📖 **Deep dive:** [`docs/medium-article.md`](docs/medium-article.md) — the design story behind
-> crashsink: the one-handler-slot constraint, attribution, dying-thread safety, and the gotchas.
-
 ---
 
 ## Why not just use Crashlytics/Sentry?

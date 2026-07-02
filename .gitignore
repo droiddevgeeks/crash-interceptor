@@ -14,3 +14,6 @@ local.properties
 # the repo. Copy sample/google-services.json.example to google-services.json and
 # drop in your own Firebase Android app config.
 sample/google-services.json
+
+# Blog/article drafts — kept locally for publishing, not tracked in the repo.
+docs/medium-article.md
