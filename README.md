@@ -57,16 +57,57 @@ This is an **Android library** (`com.android.library`):
 
 ## Adding it to your build
 
-Depend on the published AAR (or include the module):
+### Via JitPack
+
+Add the JitPack repository (in `settings.gradle.kts`, or your root `build.gradle` for older setups):
 
 ```kotlin
-dependencies {
-    implementation("com.droiddevgeeks:crashsink:<version>")
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri("https://jitpack.io") }
+    }
 }
 ```
 
-Or copy the `com.droiddevgeeks.crashsink` package into an existing Android library module —
+Then depend on the library. This is a multi-module repo, so the coordinate is
+`com.github.<owner>.<repo>:<module>:<tag>` — the module is `crashsink`:
+
+```kotlin
+dependencies {
+    implementation("com.github.droiddevgeeks.crash-interceptor:crashsink:<tag>")
+}
+```
+
+`<tag>` is any Git tag or GitHub Release (e.g. `0.1.0`). No authentication needed for a public
+repo. The first build of a new tag is compiled on JitPack's servers (watch the log at
+`https://jitpack.io/#droiddevgeeks/crash-interceptor`); every request after that is cached.
+
+### Or vendor the source
+
+Copy the `com.droiddevgeeks.crashsink` package into an existing Android library module —
 it has a single platform dependency (`android.util.Log`, in `CrashLogger`).
+
+### Cutting a release (maintainers)
+
+JitPack builds from tags — there's no upload step. Tag, push, done:
+
+```bash
+git tag 0.1.0
+git push origin 0.1.0            # then optionally cut a GitHub Release for the tag
+```
+
+Verify it built green on `https://jitpack.io/#droiddevgeeks/crash-interceptor` before announcing
+the version. Tags are effectively immutable on JitPack (a moved tag may keep serving the stale
+cached build) — **never move a tag; always bump.** `jitpack.yml` pins JDK 17 and builds only
+`:crashsink`, so the `:sample` app's Firebase config can't break the release build.
+
+To smoke-test the exact artifact locally before tagging:
+
+```bash
+./gradlew :crashsink:publishToMavenLocal   # -> ~/.m2/repository/com/droiddevgeeks/crashsink/
+```
 
 ---
 

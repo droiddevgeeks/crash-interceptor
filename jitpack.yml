@@ -1,0 +1,13 @@
+# JitPack build config — https://jitpack.io
+#
+# AGP 8.13 / Kotlin 2.2 require JDK 17; JitPack's default JDK is older, so pin it.
+jdk:
+  - openjdk17
+
+# Build ONLY the library. The :sample app applies the google-services plugin, whose
+# processGoogleServices task fails without a google-services.json (untracked, absent on a
+# fresh clone). Publishing just :crashsink never executes any :sample task, so the missing
+# Firebase config can't break the JitPack build. publishToMavenLocal produces the .aar +
+# sources JAR + POM that JitPack then serves as com.github.<owner>.<repo>:crashsink:<tag>.
+install:
+  - ./gradlew :crashsink:publishToMavenLocal
