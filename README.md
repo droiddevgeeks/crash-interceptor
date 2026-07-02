@@ -71,18 +71,20 @@ dependencyResolutionManagement {
 }
 ```
 
-Then depend on the library. This is a multi-module repo, so the coordinate is
-`com.github.<owner>.<repo>:<module>:<tag>` — the module is `crashsink`:
+Then depend on the library. `jitpack.yml` publishes only `:crashsink`, so JitPack serves it at
+the repo-level coordinate `com.github.<owner>:<repo>:<tag>` (not a multi-module submodule path):
 
 ```kotlin
 dependencies {
-    implementation("com.github.droiddevgeeks.crash-interceptor:crashsink:<tag>")
+    implementation("com.github.droiddevgeeks:crash-interceptor:0.1.0")
 }
 ```
 
 `<tag>` is any Git tag or GitHub Release (e.g. `0.1.0`). No authentication needed for a public
 repo. The first build of a new tag is compiled on JitPack's servers (watch the log at
-`https://jitpack.io/#droiddevgeeks/crash-interceptor`); every request after that is cached.
+`https://jitpack.io/#droiddevgeeks/crash-interceptor`); every request after that is cached. The
+served artifact is named `crash-interceptor-<tag>.aar`, but its contents are the `:crashsink`
+library — package `com.droiddevgeeks.crashsink`, unchanged.
 
 ### Or vendor the source
 
