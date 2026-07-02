@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets
 import java.util.concurrent.Executor
 
 /** On a healthy process, reconstructs persisted crashes and feeds them to the pipeline. */
-class CrashIngestor(
+internal class CrashIngestor(
     private val store: CrashFileStore,
     private val sink: CrashSink,
     private val ioExecutor: Executor

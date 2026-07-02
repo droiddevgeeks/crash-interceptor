@@ -3,10 +3,9 @@ package com.droiddevgeeks.crashsink
 import android.content.Context
 import android.os.Build
 
-/** Collects [DeviceMetadata] from an Android Context (off the crash path). */
-object AndroidDeviceMetadata {
+/** Collects [DeviceMetadata] from an Android Context (off the crash path). Internal. */
+internal object AndroidDeviceMetadata {
 
-    @JvmStatic
     fun collect(context: Context): DeviceMetadata {
         var appVersionName = "unknown"
         var appVersionCode = 0

@@ -38,11 +38,12 @@ object FakeSdk {
         val downstream = Thread.getDefaultUncaughtExceptionHandler()
         Log.d(TAG, "downstream handler (crashsink will delegate to): ${downstream?.javaClass?.name}")
 
+        // The Context-based create puts our crashes in a per-SDK dir derived from OWNED_PREFIX,
+        // so we never collide with another crashsink-using SDK — or the host — in the same app.
+        // fileCap / flushTimeoutMillis are omitted here → the defaults (20 / 1000ms) apply.
         reporter = CrashReporter.create(
             // applicationContext: never hold an Activity, even if init is called from one.
             context.applicationContext,
-            /* fileCap = */ 20,
-            /* flushTimeoutMillis = */ 1000L,
             { token, _, level, culprit, timestamp, ctx ->
                 // Runs on the ingest thread. A real SDK would POST to its backend here;
                 // the sample just logs each previous-run crash it delivers.

@@ -3,7 +3,7 @@ package com.droiddevgeeks.crashsink
 import java.util.regex.Pattern
 
 /** Strips known-sensitive substrings from exception messages before persistence. */
-class Redactor {
+internal class Redactor {
 
     fun scrub(message: String?): String? {
         if (message.isNullOrEmpty()) {

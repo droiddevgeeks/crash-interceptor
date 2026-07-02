@@ -5,6 +5,7 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -120,7 +121,7 @@ class CrashReporterTest {
         assertEquals(0, store.listCompleted().size)
     }
 
-    @Test @Suppress("DEPRECATION") fun contextOverloadCapturesCrashUnderFilesDirAndDelegates() {
+    @Test @Suppress("DEPRECATION") fun contextCreateCapturesCrashUnderNamespacedDirAndDelegates() {
         val filesDir = tmp.newFolder("files")
 
         val context = mock(Context::class.java)
@@ -133,16 +134,15 @@ class CrashReporterTest {
         `when`(context.packageName).thenReturn("com.example")
         `when`(pm.getPackageInfo("com.example", 0)).thenReturn(pi)
 
-        val reporter = CrashReporter.create(context, 20, 1000L, RecordingSink(), "com.example.")
+        val reporter = CrashReporter.create(context, RecordingSink(), "com.example.", 20, 1000L)
         reporter.install()
         reporter.startCapturing("tok-ctx")
 
         Thread.getDefaultUncaughtExceptionHandler()!!.uncaughtException(Thread.currentThread(), ourCrash())
 
         // persistBlocking waits up to the flush timeout for the daemon writer.
-        val crashDir = File(filesDir, "crashes")
-        val store = CrashFileStore(crashDir, 20)
-        assertEquals(1, store.listCompleted().size) // captured under filesDir/crashes
+        val store = CrashFileStore(CrashReporter.crashDirFor(filesDir, "com.example."), 20)
+        assertEquals(1, store.listCompleted().size) // captured under filesDir/crashsink/<prefix>
         assertTrue(previous.called) // delegated to host
 
         reporter.shutdown()
@@ -153,7 +153,7 @@ class CrashReporterTest {
         assertEquals(1000L, CrashReporter.DEFAULT_FLUSH_TIMEOUT_MS)
     }
 
-    @Test @Suppress("DEPRECATION") fun convenienceContextOverloadUsesDefaultsAndCaptures() {
+    @Test @Suppress("DEPRECATION") fun convenienceContextCreateOverloadUsesDefaultsAndCaptures() {
         val filesDir = tmp.newFolder("files")
 
         val context = mock(Context::class.java)
@@ -173,7 +173,7 @@ class CrashReporterTest {
 
         Thread.getDefaultUncaughtExceptionHandler()!!.uncaughtException(Thread.currentThread(), ourCrash())
 
-        val store = CrashFileStore(File(filesDir, "crashes"), CrashReporter.DEFAULT_FILE_CAP)
+        val store = CrashFileStore(CrashReporter.crashDirFor(filesDir, "com.example."), CrashReporter.DEFAULT_FILE_CAP)
         assertEquals(1, store.listCompleted().size) // captured with default cap
         assertTrue(previous.called)                  // delegated to host
 
@@ -194,5 +194,47 @@ class CrashReporterTest {
 
         assertTrue(writer.isShutdown)
         assertTrue(io.isShutdown)
+    }
+
+    @Test fun crashDirForNamespacesUnderCrashsinkParent() {
+        val dir = CrashReporter.crashDirFor(tmp.root, "com.example.sdk.")
+        assertEquals(File(File(tmp.root, "crashsink"), "com.example.sdk"), dir)
+    }
+
+    @Test fun crashDirForGivesDistinctDirsPerPrefix() {
+        // Two guest SDKs (or SDK + host) with different prefixes must not share a directory.
+        val a = CrashReporter.crashDirFor(tmp.root, "com.a.")
+        val b = CrashReporter.crashDirFor(tmp.root, "com.b.")
+        assertNotEquals(a, b)
+        assertEquals(File(tmp.root, "crashsink"), a.parentFile)
+        assertEquals(File(tmp.root, "crashsink"), b.parentFile)
+    }
+
+    @Test fun crashDirForSanitizesUnsafeChars() {
+        // Path separators / spaces can never leak into the child directory name.
+        val dir = CrashReporter.crashDirFor(tmp.root, "com/evil..name ")
+        assertEquals(File(tmp.root, "crashsink"), dir.parentFile)
+        assertTrue(!dir.name.contains("/") && !dir.name.contains(" "))
+    }
+
+    @Test fun crashDirForFallsBackWhenPrefixHasNoSafeChars() {
+        val dir = CrashReporter.crashDirFor(tmp.root, "...")
+        assertEquals(File(File(tmp.root, "crashsink"), "default"), dir)
+    }
+
+    @Test fun createFromContextBuildsInstallableReporter() {
+        val ctx = mock(Context::class.java)
+        `when`(ctx.filesDir).thenReturn(tmp.root)
+        // packageManager left unstubbed (null) → AndroidDeviceMetadata.collect catches → defaults.
+
+        val reporter = CrashReporter.create(ctx, RecordingSink(), "com.example.")
+        reporter.install()
+        reporter.startCapturing("s")
+        reporter.stopCapturing()
+        reporter.shutdown()
+
+        // Wiring proof: our interceptor is in the slot, delegating to the pre-existing handler.
+        // (No crash triggered here; crashDirFor tests cover the collision-avoidance directly.)
+        assertTrue(Thread.getDefaultUncaughtExceptionHandler() is CrashInterceptor)
     }
 }

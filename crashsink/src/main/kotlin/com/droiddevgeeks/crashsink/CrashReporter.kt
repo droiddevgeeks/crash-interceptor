@@ -9,10 +9,11 @@ import java.util.concurrent.ThreadFactory
 /**
  * Public facade wiring the crash subsystem together.
  *
- * The primary constructor is public for testing: it lets unit tests inject executors and
- * collaborators directly. Consumers should use the [create] factories instead.
+ * The primary constructor is `internal`: it lets in-module unit tests inject executors and
+ * collaborators directly, and it necessarily takes internal collaborator types. Consumers use the
+ * public [create] factories instead.
  */
-class CrashReporter(
+class CrashReporter internal constructor(
     private val manager: CrashHandlerManager,
     private val processor: CrashProcessor,
     private val ingestor: CrashIngestor,
@@ -62,45 +63,41 @@ class CrashReporter(
         /** Default ceiling (ms) the crashing thread waits for the write before delegating anyway. */
         const val DEFAULT_FLUSH_TIMEOUT_MS: Long = 1000L
 
-        @JvmStatic
-        fun create(
-            crashDir: File,
-            fileCap: Int,
-            flushTimeoutMillis: Long,
-            sink: CrashSink,
-            ownedPrefix: String
-        ): CrashReporter = create(crashDir, fileCap, flushTimeoutMillis, sink, ownedPrefix, null)
-
         /**
-         * Context-based overload: derives the crash dir from [Context.getFilesDir] and attaches
-         * device/app metadata (collected once, off the crash path) to every captured crash.
+         * The one factory consumers call. Builds from an Android [Context]: derives the crash dir
+         * from [Context.getFilesDir], attaches device/app metadata (collected once, off the crash
+         * path) to every captured crash, and stores crashes in a per-SDK private subdirectory
+         * derived from [ownedPrefix]. Because the directory is namespaced by your package, two
+         * crashsink-using SDKs in the same app — or a guest SDK alongside a crashsink-using host —
+         * never share a crash directory and cannot cross-deliver or cross-delete each other's
+         * crashes.
+         *
+         * [fileCap] and [flushTimeoutMillis] are optional: omit them in Kotlin (they default to
+         * [DEFAULT_FILE_CAP] / [DEFAULT_FLUSH_TIMEOUT_MS]); `@JvmOverloads` generates the matching
+         * shorter Java overloads so Java callers can omit them too.
          */
         @JvmStatic
+        @JvmOverloads
         fun create(
             context: Context,
-            fileCap: Int,
-            flushTimeoutMillis: Long,
             sink: CrashSink,
-            ownedPrefix: String
+            ownedPrefix: String,
+            fileCap: Int = DEFAULT_FILE_CAP,
+            flushTimeoutMillis: Long = DEFAULT_FLUSH_TIMEOUT_MS
         ): CrashReporter {
-            val crashDir = File(context.filesDir, "crashes")
+            val crashDir = crashDirFor(context.filesDir, ownedPrefix)
             val metadata = AndroidDeviceMetadata.collect(context)
             return create(crashDir, fileCap, flushTimeoutMillis, sink, ownedPrefix, metadata)
         }
 
         /**
-         * Convenience overload using [DEFAULT_FILE_CAP] and [DEFAULT_FLUSH_TIMEOUT_MS]. Derives the
-         * crash dir from [Context.getFilesDir] and attaches device/app metadata. Callable from
-         * Kotlin and Java; use the full overload to tune `fileCap` / `flushTimeoutMillis`.
+         * The per-SDK crash directory [create] uses: `<filesDir>/crashsink/<name>`, where `<name>`
+         * is [ownedPrefix] with any character outside `[A-Za-z0-9._-]` replaced by `_` and
+         * surrounding `.`/`_` trimmed (e.g. `"com.example.sdk."` -> `"com.example.sdk"`). Distinct
+         * prefixes yield distinct directories. Internal — an implementation detail of [create].
          */
-        @JvmStatic
-        fun create(context: Context, sink: CrashSink, ownedPrefix: String): CrashReporter =
-            create(context, DEFAULT_FILE_CAP, DEFAULT_FLUSH_TIMEOUT_MS, sink, ownedPrefix)
-
-        /** Convenience overload for a caller-supplied dir, using the default cap and flush timeout. */
-        @JvmStatic
-        fun create(crashDir: File, sink: CrashSink, ownedPrefix: String): CrashReporter =
-            create(crashDir, DEFAULT_FILE_CAP, DEFAULT_FLUSH_TIMEOUT_MS, sink, ownedPrefix, null)
+        internal fun crashDirFor(filesDir: File, ownedPrefix: String): File =
+            File(File(filesDir, SDK_CRASH_DIR_PARENT), sdkDirName(ownedPrefix))
 
         private fun create(
             crashDir: File,
@@ -126,5 +123,16 @@ class CrashReporter(
             ThreadFactory { r ->
                 Thread(r, name).apply { isDaemon = true }
             }
+
+        /** Parent directory that holds each SDK's namespaced crash subdirectory. */
+        private const val SDK_CRASH_DIR_PARENT = "crashsink"
+
+        private val UNSAFE_DIR_CHARS = Regex("[^A-Za-z0-9._-]")
+
+        /** Filesystem-safe, collision-free directory name derived from an owned prefix. */
+        private fun sdkDirName(ownedPrefix: String): String {
+            val cleaned = ownedPrefix.replace(UNSAFE_DIR_CHARS, "_").trim('.', '_')
+            return cleaned.ifEmpty { "default" }
+        }
     }
 }

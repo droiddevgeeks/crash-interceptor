@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 /** Builds the redacted crash payload and writes it within a bounded timeout. Never throws. */
-class CrashProcessor(
+internal class CrashProcessor(
     private val redactor: Redactor,
     private val store: CrashFileStore,
     private val writerExecutor: ExecutorService,
@@ -88,11 +88,10 @@ class CrashProcessor(
         /**
          * Pure payload builder: a JSON object describing the crash and its cause chain.
          *
-         * Public + `@JvmStatic` so the JVM unit tests can exercise it directly as
-         * `CrashProcessor.buildPayloadJson(...)`. It is not part of the consumer-facing API.
+         * Internal: the JVM unit tests exercise it directly as `CrashProcessor.buildPayloadJson(...)`.
+         * It is not part of the consumer-facing API.
          */
-        @JvmStatic
-        fun buildPayloadJson(
+        internal fun buildPayloadJson(
             throwable: Throwable,
             threadId: Long,
             token: String?,

@@ -16,7 +16,7 @@ This is a **two-module Gradle build** — the root is not itself a module, so ta
 module-qualified (`./gradlew testDebugUnitTest` alone will not work):
 
 ```bash
-./gradlew :crashsink:testDebugUnitTest      # 55 host-JVM unit tests (Kotlin + 1 Java interop test)
+./gradlew :crashsink:testDebugUnitTest      # 64 host-JVM unit tests (Kotlin + 1 Java interop guard)
 ./gradlew :crashsink:assembleRelease        # -> crashsink/build/outputs/aar/crashsink-release.aar
 ./gradlew :sample:assembleDebug             # -> sample/build/outputs/apk/debug/sample-debug.apk
 
@@ -70,19 +70,34 @@ merely passes *through* your code (host callback you invoked that threw) is corr
 - **No new runtime dependencies.** `org.json` is provided by the Android platform at runtime; it is a
   *test-only* dependency (the platform's `org.json` is a throwing stub under host unit tests).
 
-## Kotlin ↔ Java interop contract
+## Public API surface & Kotlin ↔ Java interop contract
 
-The library is Kotlin but its public API must stay callable from Java. When editing public API, preserve:
-- `@JvmStatic` on companion/object factories so Java calls `CrashReporter.create(...)`,
-  `CrashProcessor.buildPayloadJson(...)`, `AndroidDeviceMetadata.collect(...)` without `.Companion`.
-- `@JvmField` on `DeviceMetadata` properties (Java reads `metadata.osVersion` as a field).
-- `CrashSink` is a `fun interface` (SAM) — usable as a lambda from both Kotlin and Java.
-- Kotlin has no package-private. `CrashProcessor.buildPayloadJson` and the `CrashReporter` wiring
-  constructor are deliberately **public** (documented "visible for testing") because `internal` gets
-  name-mangled and is unusable from Java tests. `CrashLogger` and `CrashFrames` are `internal object`s
-  (no external caller) — keep them internal.
-- `crashsink/src/test/java/.../JavaInteropTest.java` is the permanent, CI-enforced Java-callability
-  guard. If you change public API, keep this compiling and passing.
+The public API is deliberately **minimal** — only the consumer contract is `public`; everything else
+is `internal`. The entire public surface is:
+- **`CrashReporter`** — the facade. A single `create(...)` factory (`@JvmStatic` + `@JvmOverloads`:
+  `create(context, sink, ownedPrefix, fileCap = DEFAULT_FILE_CAP, flushTimeoutMillis =
+  DEFAULT_FLUSH_TIMEOUT_MS)` — Kotlin omits the trailing defaults, `@JvmOverloads` gives Java the
+  same), the `DEFAULT_*` constants, and the `install`/`startCapturing`/`stopCapturing`/`shutdown`
+  lifecycle. Its wiring **constructor is `internal`** (test-only injection; it also necessarily takes
+  internal collaborator types). The crash dir is derived internally (`crashDirFor`, `internal`) —
+  consumers don't pick it.
+- **`CrashSink`** — a `fun interface` (SAM), usable as a lambda from Kotlin and Java. Consumers
+  implement it. Its callback carries only `String`/primitive params (device/app metadata reaches it
+  as the `contexts` JSON string), so no other type needs to be public.
+
+Everything else is `internal` implementation and must stay that way: `CrashInterceptor`,
+`CrashAttributor`, `CrashHandlerManager`, `CrashProcessor` (incl. `buildPayloadJson`),
+`CrashFileStore`, `CrashIngestor`, `Redactor`, `AndroidDeviceMetadata`, `DeviceMetadata`,
+`CrashLogger`, `CrashFrames`. Kotlin has no package-private; these are covered by Kotlin unit tests
+in the same module (which can see `internal`). A `public` function may not expose an `internal` type
+in its signature — that's why the wiring constructor is internal.
+
+`crashsink/src/test/java/.../JavaInteropTest.java` is the permanent, CI-enforced guard that the
+**public** API stays Java-callable (SAM `CrashSink`, the `create` factory — both the defaults and
+explicit `@JvmOverloads` forms — the `DEFAULT_*` constants, and the lifecycle). If you change the
+public API, keep it compiling and passing. Do **not**
+add coverage of internal types there — internal is name-mangled/unusable from Java; test internals in
+Kotlin instead.
 
 ## Modules
 

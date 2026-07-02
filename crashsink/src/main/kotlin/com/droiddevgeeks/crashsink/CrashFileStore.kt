@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets
 import java.util.Collections
 
 /** Lock-free, one-file-per-crash storage. Atomic temp+rename, no fsync. */
-class CrashFileStore(
+internal class CrashFileStore(
     private val dir: File,
     private val maxFiles: Int
 ) {

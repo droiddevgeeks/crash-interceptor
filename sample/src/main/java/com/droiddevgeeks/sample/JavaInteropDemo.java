@@ -10,7 +10,7 @@ import com.droiddevgeeks.crashsink.CrashSink;
  * Proves the Kotlin crashsink API is callable from Java — at compile time (this file compiles
  * against the Kotlin library) and at runtime (the button invokes {@link #run}).
  *
- * Exercises: the static {@code create(Context, int, long, CrashSink, String)} factory,
+ * Exercises: the static {@code create(Context, CrashSink, String, int, long)} factory,
  * {@link CrashSink} implemented as a Java lambda (a Kotlin {@code fun interface} SAM), and the
  * {@code startCapturing}/{@code stopCapturing}/{@code shutdown} instance methods.
  */
@@ -27,8 +27,9 @@ public final class JavaInteropDemo {
                 Log.i(TAG, "[java] sink got crash culprit=" + culprit + " token=" + token);
 
         // Kotlin companion @JvmStatic factory, called as a plain static method from Java.
+        // @JvmOverloads lets Java pass fileCap/flushTimeout or omit them for the defaults.
         CrashReporter reporter =
-                CrashReporter.create(context, 20, 1000L, sink, "com.droiddevgeeks.fakesdk.");
+                CrashReporter.create(context, sink, "com.droiddevgeeks.fakesdk.", 20, 1000L);
 
         // Instance methods. We intentionally do NOT install() here — this demo only proves the
         // API is Java-callable without disturbing the Activity's own reporter chain.

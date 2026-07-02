@@ -82,16 +82,12 @@ CrashSink sink = (token, exceptionValues, level, culprit, timestamp, contexts) -
     myBackend.uploadCrash(token, exceptionValues, level, culprit, timestamp, contexts);
 };
 
-// 2. Build the reporter from a Context — it derives the crash dir from getFilesDir() and
-//    attaches device/app metadata to every crash. The last arg is YOUR package prefix:
-//    the thing that marks a crash as "yours". Nothing about crashsink is hardcoded to a vendor.
-CrashReporter reporter = CrashReporter.create(
-        context,
-        /* fileCap         */ 20,      // keep at most N crash files on disk
-        /* flushTimeoutMs  */ 1000L,   // max time the crashing thread waits for the write
-        sink,
-        /* ownedPrefix     */ "com.example.sdk.");
-// (There's also a create(File crashDir, …) overload with no Context and no device metadata.)
+// 2. Build the reporter from a Context — it derives a per-SDK crash dir from getFilesDir() and
+//    attaches device/app metadata to every crash. `ownedPrefix` is YOUR package prefix: the
+//    thing that marks a crash as "yours". Nothing about crashsink is hardcoded to a vendor.
+CrashReporter reporter = CrashReporter.create(context, sink, "com.example.sdk.");
+// fileCap + flushTimeoutMillis are optional; pass them to tune (defaults: 20 files, 1000ms):
+//   CrashReporter.create(context, sink, "com.example.sdk.", /*fileCap*/ 50, /*flushTimeoutMs*/ 1500L);
 
 // 3. Install into the uncaught-handler chain. This also ingests any crashes
 //    that were persisted on a previous run and hands them to your sink.
@@ -107,14 +103,15 @@ reporter.stopCapturing();
 reporter.shutdown();
 ```
 
-From **Kotlin** the same API reads naturally — the sink is a trailing lambda:
+From **Kotlin** the same API reads naturally — `fileCap`/`flushTimeoutMillis` default, so omit them:
 
 ```kotlin
-val reporter = CrashReporter.create(context, fileCap = 20, flushTimeoutMillis = 1000L,
+val reporter = CrashReporter.create(
+    context,
     sink = CrashSink { token, exceptionValues, level, culprit, timestamp, contexts ->
         myBackend.uploadCrash(token, exceptionValues, level, culprit, timestamp, contexts)
     },
-    ownedPrefix = "com.example.sdk.")
+    ownedPrefix = "com.example.sdk.")          // or add fileCap = 50, flushTimeoutMillis = 1500L
 reporter.install()
 reporter.startCapturing(sessionId)
 ```
@@ -133,6 +130,7 @@ object MySdk {
     @Synchronized
     fun init(context: Context) {
         if (reporter != null) return                      // guard against a host that double-inits
+        // The Context-based create stores crashes in a per-SDK private directory (see below).
         reporter = CrashReporter.create(context.applicationContext, sink, "com.example.sdk.")
             .apply { install(); startCapturing(sessionId) }
     }
@@ -142,12 +140,18 @@ object MySdk {
 Install as early as your init runs — crashes before that point can't be captured (they still
 reach the host's reporter). Use `applicationContext` so you never retain an Activity.
 
-**Double-init is safe.** If `install()` runs more than once for the same `ownedPrefix` (host
-calls your init from several places), crashsink **adopts the interceptor already in the chain**
-instead of stacking a second one — so a single crash is never delivered twice. Still guard
-`create()` itself (as above): each `CrashReporter` you build owns background threads that only
-`shutdown()` releases, and the adopt-on-install path can't reclaim a spare reporter's threads.
-A different `ownedPrefix` is treated as a genuinely different SDK and chains normally.
+**Per-SDK crash directory.** `create` stores crashes in `filesDir/crashsink/<your-prefix>` — derived
+from `ownedPrefix`, so two crashsink-using SDKs (or a guest SDK and a crashsink-using host) in one
+app get distinct directories and never cross-deliver or cross-delete each other's crash files. You
+don't manage the directory — crashsink does. Just keep your prefix disjoint from other SDKs' —
+`com.a.` and `com.a.plugin.` overlap under the starts-with attribution rule.
+
+**Double-init is safe.** If `install()` runs more than once for the same `ownedPrefix` (host calls
+your init from several places), crashsink **adopts the interceptor already in the chain** instead
+of stacking a second one — so a single crash is never delivered twice. A different `ownedPrefix` is
+treated as a genuinely different SDK and chains normally. Still guard `create` itself
+(as above): each `CrashReporter` you build owns background threads that only `shutdown()` releases,
+and the adopt-on-install path can't reclaim a spare reporter's threads.
 
 ### The `CrashSink` you implement
 
@@ -176,8 +180,7 @@ crash path) and JVM heap memory (read cheaply at crash time):
 }
 ```
 
-(The `device` block is present only when you build with the `Context` overload; `memory` is
-always included. `contexts` is `"{}"` when built from the `File` overload.)
+(`create` always builds from a `Context`, so the `device` block and `memory` are both present.)
 
 ---
 
@@ -224,17 +227,19 @@ disk stalls — and then crashsink delegates anyway rather than hang.
 
 | Parameter | Meaning | Default / Suggested |
 |---|---|---|
-| `crashDir` | directory for crash files (one file per crash) | app-private storage |
+| `context` | any `Context`; the crash dir is derived from `getFilesDir()` (you don't pick it) | — (required) |
+| `sink` | where captured crashes are delivered (on next launch, off the main thread) | — (required) |
 | `fileCap` | max crash files retained; **oldest evicted** beyond this | `20` (`CrashReporter.DEFAULT_FILE_CAP`) |
 | `flushTimeoutMillis` | max time the crashing thread blocks for the write | `1000` (`CrashReporter.DEFAULT_FLUSH_TIMEOUT_MS`; tune from real write-latency telemetry) |
 | `ownedPrefix` | package prefix that marks a crash as yours | your SDK's root package, e.g. `"com.example.sdk."` |
 
-`fileCap` and `flushTimeoutMillis` are optional — call the three-arg convenience overload to accept
-the defaults, or the full overload to tune them:
+`fileCap` and `flushTimeoutMillis` are optional trailing parameters — omit them for the defaults, or
+pass them to tune. In Kotlin they're default arguments; `@JvmOverloads` gives Java the same
+omit-or-pass choice:
 
 ```kotlin
 CrashReporter.create(context, sink, "com.example.sdk.")            // defaults: cap 20, timeout 1000ms
-CrashReporter.create(context, 50, 1500L, sink, "com.example.sdk.") // explicit
+CrashReporter.create(context, sink, "com.example.sdk.", 50, 1500L) // explicit
 ```
 
 **`fileCap` is a bound on the failure path, not the steady state.** In the happy path (crash →

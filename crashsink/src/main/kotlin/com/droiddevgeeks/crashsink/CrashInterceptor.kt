@@ -1,7 +1,7 @@
 package com.droiddevgeeks.crashsink
 
 /** Decorator in the uncaught-exception chain. Captures our crashes, always delegates. */
-class CrashInterceptor(
+internal class CrashInterceptor(
     val previous: Thread.UncaughtExceptionHandler?,
     val attributor: CrashAttributor,
     private val processor: CrashProcessor

@@ -1,7 +1,7 @@
 package com.droiddevgeeks.crashsink
 
 /** Owns installation and survival of the crash interceptor in the handler chain. */
-class CrashHandlerManager(
+internal class CrashHandlerManager(
     private val attributor: CrashAttributor,
     private val processor: CrashProcessor
 ) {
