@@ -10,6 +10,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // Resolves the published crashsink artifact for the :sample app.
+        maven { url = uri("https://jitpack.io") }
     }
 }
 

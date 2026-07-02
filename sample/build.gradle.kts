@@ -40,7 +40,12 @@ android {
 dependencies {
     // Sibling-module dependency: robust build ordering, identical runtime behavior to the
     // published .aar (the library carries zero runtime deps — org.json is platform-provided).
-    implementation(project(":crashsink"))
+    // implementation(project(":crashsink"))
+
+    // Consume the published JitPack artifact instead — dogfoods the exact AAR external
+    // consumers get. NOTE: local crashsink changes won't reach the sample until republished
+    // (bump the version + tag). Requires the jitpack.io repo in settings.gradle.kts.
+    implementation("com.github.droiddevgeeks:crash-interceptor:0.1.0")
 
     // Import the Firebase BoM
     implementation(platform("com.google.firebase:firebase-bom:34.15.0"))
