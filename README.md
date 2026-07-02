@@ -119,6 +119,36 @@ reporter.install()
 reporter.startCapturing(sessionId)
 ```
 
+### Where to install (you're a guest SDK)
+
+crashsink is a **guest-SDK** reporter, so install it from **your SDK's own init entry point** —
+the method the host app already calls to set you up — not from the host's `Application`. A
+third-party SDK can't assume the host even has an `Application` subclass; what you always have is
+the `Context` the host passes you.
+
+```kotlin
+object MySdk {
+    @Volatile private var reporter: CrashReporter? = null
+
+    @Synchronized
+    fun init(context: Context) {
+        if (reporter != null) return                      // guard against a host that double-inits
+        reporter = CrashReporter.create(context.applicationContext, sink, "com.example.sdk.")
+            .apply { install(); startCapturing(sessionId) }
+    }
+}
+```
+
+Install as early as your init runs — crashes before that point can't be captured (they still
+reach the host's reporter). Use `applicationContext` so you never retain an Activity.
+
+**Double-init is safe.** If `install()` runs more than once for the same `ownedPrefix` (host
+calls your init from several places), crashsink **adopts the interceptor already in the chain**
+instead of stacking a second one — so a single crash is never delivered twice. Still guard
+`create()` itself (as above): each `CrashReporter` you build owns background threads that only
+`shutdown()` releases, and the adopt-on-install path can't reclaim a spare reporter's threads.
+A different `ownedPrefix` is treated as a genuinely different SDK and chains normally.
+
 ### The `CrashSink` you implement
 
 ```java

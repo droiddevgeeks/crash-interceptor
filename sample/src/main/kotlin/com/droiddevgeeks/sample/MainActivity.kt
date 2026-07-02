@@ -8,9 +8,11 @@ import com.droiddevgeeks.fakesdk.FakeSdk
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 
 /**
- * UI only. crashsink is installed once per process in [SampleApp]; this Activity never
- * installs anything — it just triggers demo crashes. Ingested previous-run crashes are
- * logged to logcat by the sink in SampleApp (tag "crashsink-sample").
+ * UI + a second init call. The guest SDK was already initialised from [SampleApp]; calling
+ * [FakeSdk.init] again here (a host that inits from both Application and an Activity) is safe —
+ * crashsink adopts the interceptor already in the chain instead of stacking a duplicate, so a
+ * single crash is never delivered twice. The buttons just trigger demo crashes; ingested
+ * previous-run crashes are logged to logcat by FakeSdk's sink (tag "crashsink-sample").
  *
  *  - SDK crash  → owned prefix matches → crashsink CAPTURES it (logged next launch) AND
  *                 delegates to Crashlytics → lands in BOTH.
@@ -22,9 +24,13 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Idempotent: SampleApp already called this. A real host might only init the SDK from
+        // an Activity (no Application), so the SDK must tolerate being init'd from either.
+        FakeSdk.init(this)
+
         findViewById<TextView>(R.id.log).text =
-            "crashsink installed in SampleApp. ownedPrefix=${SampleApp.OWNED_PREFIX}\n" +
-            "Trigger a crash, relaunch, and watch logcat (tag '${SampleApp.TAG}') for the\n" +
+            "crashsink installed from FakeSdk.init. ownedPrefix=${FakeSdk.OWNED_PREFIX}\n" +
+            "Trigger a crash, relaunch, and watch logcat (tag '${FakeSdk.TAG}') for the\n" +
             "INGESTED line from the previous run."
 
         findViewById<Button>(R.id.btnCrashSdk).setOnClickListener {

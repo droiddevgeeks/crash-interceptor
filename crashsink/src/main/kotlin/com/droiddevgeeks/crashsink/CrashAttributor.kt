@@ -1,7 +1,7 @@
 package com.droiddevgeeks.crashsink
 
 /** Decides whether a crash originated in owned code (top application frame). */
-class CrashAttributor(private val ownedPrefix: String) {
+class CrashAttributor(val ownedPrefix: String) {
 
     fun isOurs(throwable: Throwable?): Boolean {
         if (throwable == null) {
