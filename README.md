@@ -153,6 +153,32 @@ treated as a genuinely different SDK and chains normally. Still guard `create` i
 (as above): each `CrashReporter` you build owns background threads that only `shutdown()` releases,
 and the adopt-on-install path can't reclaim a spare reporter's threads.
 
+### Can the host app use this too?
+
+Mechanically, yes. The host is just another participant keyed by its own prefix:
+`CrashReporter.create(context, sink, "com.host.app.")`. Because the crash dir is namespaced per
+prefix and interceptors chain (different prefix) rather than stack, a host reporter coexists cleanly
+with any guest SDKs' reporters and with the host's Crashlytics/Sentry downstream — same guarantees
+as SDK-vs-SDK.
+
+But **crashsink is not a replacement for the host's primary crash reporter**, and it usually
+shouldn't be the host's main one:
+
+- **It captures only your prefix and delegates the rest.** A host normally wants *every* crash — its
+  own, third-party libraries, guest SDKs. With `ownedPrefix = "com.host.app."`, crashsink skips
+  everything outside that prefix. Keep using Crashlytics/Sentry for full coverage; crashsink runs
+  *alongside* it, not instead of it.
+- **Prefix overlap bites hosts specifically.** A host package is often the root everything nests
+  under. If the host uses `"com.host."` and bundles a first-party SDK at `"com.host.paymentsdk."`,
+  the starts-with rule makes the host's reporter *also* capture the SDK's crashes (double-capture). A
+  guest SDK's package is a leaf and avoids this; a host must pick a prefix disjoint from anything it
+  bundles.
+
+Where it does fit a host: a **narrow, self-hosted router for a specific first-party module**, running
+next to the vendor reporter — e.g. a monorepo app routing only `com.host.checkout.*` crashes to the
+checkout team's own backend. There the host is effectively "a guest of one," and it works exactly
+like any SDK integration above.
+
 ### The `CrashSink` you implement
 
 ```java
